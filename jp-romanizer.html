@@ -120,10 +120,11 @@
                 </div>
             </div>
             <div class="flex items-center space-x-2 sm:space-x-4">
-                <div id="dictionary-status" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-amber-100/90 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 transition-colors duration-300">
-                    <i class="fa-solid font-bold text-xs fa-circle-notch fa-spin"></i>
-                    <span class="font-medium">正在載入辭典...</span>
-                </div>
+                <!-- 改為可點擊的手動下載按鈕 -->
+                <button id="dictionary-status" class="flex items-center space-x-2 text-xs px-3.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 transition cursor-pointer shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-down text-xs"></i>
+                    <span class="font-medium">點擊下載辭典 (進階解析)</span>
+                </button>
                 <button id="theme-toggle" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition">
                     <i class="fa-solid fa-moon text-lg dark:hidden"></i>
                     <i class="fa-solid fa-sun text-lg hidden dark:block text-amber-400"></i>
@@ -255,6 +256,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             let tokenizer = null;
             let isDictLoaded = false;
+            let isDownloading = false;
 
             const KANJI_ALTERNATIVES = {
                 "角": ["かど", "つの", "すみ", "かく"],
@@ -291,12 +293,19 @@
             const elOptRomanization = document.getElementById('opt-romanization');
             const elOptSpaces = document.getElementById('opt-spaces');
             const elOptCase = document.getElementById('opt-case');
+            const elDictStatus = document.getElementById('dictionary-status');
 
-            function setReadyStatus(text) {
-                const statusEl = document.getElementById('dictionary-status');
-                if (statusEl) {
-                    statusEl.className = "flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-300";
-                    statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">${text}</span>`;
+            function setStatusState(state, text) {
+                if (!elDictStatus) return;
+                if (state === 'idle') {
+                    elDictStatus.className = "flex items-center space-x-2 text-xs px-3.5 py-1.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 transition cursor-pointer shadow-sm";
+                    elDictStatus.innerHTML = `<i class="fa-solid fa-cloud-arrow-down text-xs"></i><span class="font-medium">${text}</span>`;
+                } else if (state === 'loading') {
+                    elDictStatus.className = "flex items-center space-x-2 text-xs px-3.5 py-1.5 rounded-full bg-amber-100/90 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 transition-colors duration-300 cursor-wait";
+                    elDictStatus.innerHTML = `<i class="fa-solid font-bold text-xs fa-circle-notch fa-spin"></i><span class="font-medium">${text}</span>`;
+                } else if (state === 'success') {
+                    elDictStatus.className = "flex items-center space-x-2 text-xs px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-300 cursor-default";
+                    elDictStatus.innerHTML = `<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">${text}</span>`;
                 }
             }
 
@@ -557,35 +566,34 @@
             elInput.value = SAMPLES[1];
             processText();
 
-            // 改進：縮短逾時至 1.5 秒，並透過備用 CDN 或直接啟用高速解析，避免卡住
-            const fallbackTimer = setTimeout(() => {
-                if (!isDictLoaded) {
-                    setReadyStatus('就緒 (高速離線解析)');
-                }
-            }, 1500);
+            // 綁定手動下載字典事件
+            elDictStatus.addEventListener('click', () => {
+                if (isDictLoaded || isDownloading) return;
+                isDownloading = true;
+                setStatusState('loading', '正在下載辭典...');
 
-            if (typeof kuromoji !== 'undefined') {
-                try {
-                    // 修正：指向更穩定且支援 CORS 的 jsDelivr 完整路徑
-                    kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, _tok) => {
-                        clearTimeout(fallbackTimer);
-                        if (!err && _tok) {
-                            tokenizer = _tok;
-                            isDictLoaded = true;
-                            setReadyStatus('辭典載入完成 (形態素解析)');
-                            processText();
-                        } else {
-                            setReadyStatus('就緒 (高速離線解析)');
-                        }
-                    });
-                } catch(e) {
-                    clearTimeout(fallbackTimer);
-                    setReadyStatus('就緒 (高速離線解析)');
+                if (typeof kuromoji !== 'undefined') {
+                    try {
+                        kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, _tok) => {
+                            isDownloading = false;
+                            if (!err && _tok) {
+                                tokenizer = _tok;
+                                isDictLoaded = true;
+                                setStatusState('success', '辭典載入完成 (形態素解析)');
+                                processText();
+                            } else {
+                                setStatusState('idle', '下載失敗，點擊重試');
+                            }
+                        });
+                    } catch(e) {
+                        isDownloading = false;
+                        setStatusState('idle', '下載失敗，點擊重試');
+                    }
+                } else {
+                    isDownloading = false;
+                    setStatusState('idle', '庫未載入，點擊重試');
                 }
-            } else {
-                clearTimeout(fallbackTimer);
-                setReadyStatus('就緒 (高速離線解析)');
-            }
+            });
 
             elInput.addEventListener('input', processText);
             elOptRomanization.addEventListener('change', processText);
