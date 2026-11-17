@@ -33,36 +33,14 @@
     <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
 
     <style>
-        html {
-        background-color: #121216; /* 載入瞬間的深色底，避免閃白 */
-    }
-
-    @keyframes blurReveal {
-        from {
-            opacity: 0;
+        body {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('https://i.pinimg.com/originals/24/41/da/2441dacfd5703b140a2816f82bd0f9c7.gif');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
         }
-        to {
-            opacity: 1;
-        }
-    }
-
-    body {
-        position: relative;
-        min-height: 100vh;
-        animation: blurReveal 0.8s ease-out forwards;
-    }
-
-    /* 將背景圖獨立為底層圖層，即可隨 body 同步淡入 */
-    body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('https://i.pinimg.com/originals/24/41/da/2441dacfd5703b140a2816f82bd0f9c7.gif');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-    }
         .glass-card {
             background-color: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
@@ -107,35 +85,33 @@
 </head>
 <body class="text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-jp transition-colors duration-200">
 
-<header class="border-b border-slate-200/60 dark:border-slate-800/60 glass-header sticky top-0 z-30">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-sakura-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-                <span class="font-serifJp font-bold text-lg">和</span>
+    <header class="border-b border-slate-200/60 dark:border-slate-800/60 glass-header sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-sakura-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                    <span class="font-serifJp font-bold text-lg">和</span>
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 dark:text-white text-base sm:text-lg leading-tight">
+                        日文漢字/假名轉換器 <span class="text-xs font-normal text-indigo-600 dark:text-sakura-400 font-mono ml-1">(Japanese Text Converter)</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                        現代化日文羅馬字與振假名標註工具
+                    </p>
+                </div>
             </div>
-            <div>
-                <h1 class="font-bold text-slate-900 dark:text-white text-base sm:text-lg leading-tight">
-                    日文漢字/假名轉換器 <span class="text-xs font-normal text-indigo-600 dark:text-sakura-400 font-mono ml-1">(Japanese Text Converter)</span>
-                </h1>
-                <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-                    現代化日文羅馬字與振假名標註工具
-                </p>
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <div id="dictionary-status" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-amber-100/90 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 transition-colors duration-300">
+                    <i class="fa-solid font-bold text-xs fa-circle-notch fa-spin"></i>
+                    <span class="font-medium">正在載入辭典...</span>
+                </div>
+                <button id="theme-toggle" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition">
+                    <i class="fa-solid fa-moon text-lg dark:hidden"></i>
+                    <i class="fa-solid fa-sun text-lg hidden dark:block text-amber-400"></i>
+                </button>
             </div>
         </div>
-        <div class="flex items-center space-x-2 sm:space-x-4">
-            <!-- 狀態顯示徽章：預設載入中 (琥珀黃色) -->
-            <div id="dictionary-status" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-amber-100/90 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
-                <i class="fa-solid font-bold text-xs fa-circle-notch fa-spin"></i>
-                <span class="font-medium hidden sm:inline">正在載入辭典...</span>
-                <span class="font-medium sm:hidden">載入中...</span>
-            </div>
-            <button id="theme-toggle" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition">
-                <i class="fa-solid fa-moon text-lg dark:hidden"></i>
-                <i class="fa-solid fa-sun text-lg hidden dark:block text-amber-400"></i>
-            </button>
-        </div>
-    </div>
-</header>
+    </header>
 
     <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
         <!-- Options Panel -->
@@ -274,7 +250,12 @@
             "本": ["ほん", "もと"],
             "中": ["なか", "ちゅう"],
             "人": ["ひと", "じん"],
-            "私": ["わたし", "わたくし"]
+            "私": ["わたし", "わたくし"],
+            "古池": ["ふるいけ"],
+            "蛙": ["かわず"],
+            "飛び込む": ["とびこむ"],
+            "水": ["みず"],
+            "音": ["おと"]
         };
 
         const SAMPLES = {
@@ -290,6 +271,12 @@
         const elOptRomanization = document.getElementById('opt-romanization');
         const elOptSpaces = document.getElementById('opt-spaces');
         const elOptCase = document.getElementById('opt-case');
+
+        function setReadyStatus(text) {
+            const statusEl = document.getElementById('dictionary-status');
+            statusEl.className = "flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-300";
+            statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">${text}</span>`;
+        }
 
         function autoResizeTextarea() {
             elInput.style.height = 'auto';
@@ -371,6 +358,11 @@
         function kataToHira(str) {
             if (!str) return '';
             return str.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        }
+
+        function hiraToKata(str) {
+            if (!str) return '';
+            return str.replace(/[\u3041-\u3096]/g, m => String.fromCharCode(m.charCodeAt(0) + 0x60));
         }
 
         function fallbackTokenize(text) {
@@ -535,19 +527,33 @@
             elInput.value = SAMPLES[1];
             processText();
 
-            // 嘗試非同步載入進階形態素辭典，成功後改為綠色「就緒」
+            // 設定 4 秒逾時保護：若遠端辭典未能載入，自動轉為綠色就緒狀態，不再轉圈圈
+            const fallbackTimer = setTimeout(() => {
+                if (!isDictLoaded) {
+                    setReadyStatus('就緒 (快速解析模式)');
+                }
+            }, 4000);
+
             if (typeof kuromoji !== 'undefined') {
                 try {
                     kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, _tok) => {
-                        if (!err) {
+                        clearTimeout(fallbackTimer);
+                        if (!err && _tok) {
                             tokenizer = _tok;
                             isDictLoaded = true;
-                            document.getElementById('dictionary-status').className = "flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300";
-                            document.getElementById('dictionary-status').innerHTML = '<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">辭典載入完成 (形態素解析中)</span>';
+                            setReadyStatus('辭典載入完成 (形態素解析中)');
                             processText();
+                        } else {
+                            setReadyStatus('就緒 (快速解析模式)');
                         }
                     });
-                } catch(e) {}
+                } catch(e) {
+                    clearTimeout(fallbackTimer);
+                    setReadyStatus('就緒 (快速解析模式)');
+                }
+            } else {
+                clearTimeout(fallbackTimer);
+                setReadyStatus('就緒 (離線解析模式)');
             }
 
             elInput.addEventListener('input', processText);
@@ -557,8 +563,8 @@
 
             document.getElementById('btn-clear').addEventListener('click', () => { elInput.value = ''; processText(); elInput.focus(); });
             document.getElementById('btn-copy-romaji').addEventListener('click', () => copyToClipboard(elOutputRomaji.textContent, "已複製羅馬字！"));
-            document.getElementById('btn-copy-hiragana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製平假名！"));
-            document.getElementById('btn-copy-katakana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製片假名！"));
+            document.getElementById('btn-copy-hiragana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製原文！"));
+            document.getElementById('btn-copy-katakana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製原文！"));
             document.getElementById('btn-copy-html').addEventListener('click', () => copyToClipboard(elOutputFurigana.innerHTML, "已複製 HTML Ruby！"));
         });
 
