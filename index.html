@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Hub・個人網頁工具箱</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts (Noto Sans TC 與 Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        html {
+    zoom: 1.25; /* 將整個頁面等比例放大至 125% */
+            }
+       body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #070b14;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* 動態深邃極光背景 */
+        .aurora-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 15% 15%, rgba(79, 70, 229, 0.28) 0%, transparent 45%),
+                radial-gradient(circle at 85% 25%, rgba(16, 185, 129, 0.2) 0%, transparent 45%),
+                radial-gradient(circle at 50% 85%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
+                #070b14;
+            animation: auroraShift 18s ease-in-out infinite alternate;
+        }
+
+        @keyframes auroraShift {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.06) translate(-1%, 1%); }
+        }
+
+        /* 漸進式淡入進場動畫 (Staggered Reveal) */
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+                filter: blur(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                filter: blur(0);
+            }
+        }
+
+        .animate-enter {
+            opacity: 0;
+            animation: fadeSlideUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* 卡片懸浮光澤與微抬升效果 */
+        .tool-card {
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                        background-color 0.25s ease, 
+                        border-color 0.25s ease, 
+                        box-shadow 0.25s ease;
+        }
+        .tool-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px -10px rgba(79, 70, 229, 0.35);
+        }
+
+        /* 自訂捲軸 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- 極光背景層 -->
+    <div class="aurora-bg"></div>
+
+    <!-- 主容器 -->
+    <div class="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col gap-8">
+
+        <!-- 1. 頂部歡迎與即時時鐘區 -->
+        <header class="animate-enter flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/10" style="animation-delay: 0.05s;">
+            <div class="space-y-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-300 text-xs font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>個人工作台已就緒</span>
+                </div>
+                <h1 id="greeting-text" class="text-2xl sm:text-4xl font-bold tracking-tight text-white">
+                    晚安，歡迎回到工作台
+                </h1>
+                <p class="text-sm text-slate-400">
+                    集中管理你的日常效率工具、開發小幫手與靈感空間
+                </p>
+            </div>
+
+            <!-- 數位時鐘與日期 -->
+            <div class="flex items-center gap-4 bg-slate-900/50 backdrop-blur-xl border border-white/15 px-5 py-3.5 rounded-2xl shadow-lg self-start md:self-auto">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div id="live-clock" class="text-xl sm:text-2xl font-bold font-mono tracking-wider text-white">00:00:00</div>
+                    <div id="live-date" class="text-xs text-slate-400">載入日期中...</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. 搜尋與分類篩選列 -->
+        <section class="animate-enter flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4" style="animation-delay: 0.15s;">
+            <!-- 分類標籤按鈕 -->
+            <div id="category-tabs" class="flex flex-wrap items-center gap-2">
+                <button type="button" data-category="all" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 transition">
+                    全部工具
+                </button>
+                <button type="button" data-category="productivity" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition">
+                    ⚡ 專注與效率
+                </button>
+                <button type="button" data-category="language" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition">
+                    🈳 語言與學習
+                </button>
+                <button type="button" data-category="custom" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition">
+                    ✨ 自訂工具
+                </button>
+            </div>
+
+            <!-- 搜尋框與新增工具按鈕 -->
+            <div class="flex items-center gap-2.5">
+                <div class="relative flex-1 sm:w-64">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input id="search-input" type="text" placeholder="搜尋工具名稱或標籤..." class="w-full rounded-xl bg-slate-900/60 backdrop-blur-md border border-white/15 pl-10 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                </div>
+                <button id="open-add-modal-btn" type="button" class="px-3.5 py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-400/30 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition active:scale-95 shrink-0" title="新增自訂網頁工具">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>新增工具</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 3. 工具卡片網格區 -->
+        <section id="tools-grid" class="grid grid-cols-1 md:grid-cols-2 gap-5 pb-12">
+            <!-- 由 JavaScript 動態生成卡片 -->
+        </section>
+
+    </div>
+
+    <!-- 頁尾資訊 -->
+    <footer class="w-full py-5 border-t border-white/10 text-center text-xs text-slate-500 flex items-center justify-center gap-4">
+        <span>Nexus Hub 個人工具導航首頁</span>
+        <span>•</span>
+        <button id="reset-tools-btn" type="button" class="hover:text-slate-300 underline underline-offset-2 transition">重設為預設工具</button>
+    </footer>
+
+    <!-- 新增 / 編輯自訂工具彈出視窗 (Modal) -->
+    <div id="tool-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="w-full max-w-md rounded-3xl bg-slate-900/95 border border-white/20 p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 id="modal-title" class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="folder-plus" class="w-5 h-5 text-emerald-400"></i>
+                    <span>新增自訂工具卡片</span>
+                </h3>
+                <button id="close-modal-btn" type="button" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form id="tool-form" class="space-y-4">
+                <input type="hidden" id="tool-id-input">
+                
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">工具名稱 <span class="text-rose-400">*</span></label>
+                    <input id="tool-name-input" type="text" required placeholder="例如：專注時光 Workspace" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">工具網址或檔案路徑 <span class="text-rose-400">*</span></label>
+                    <input id="tool-url-input" type="text" required placeholder="例如：./todo-list.html 或 https://..." class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">所屬分類</label>
+                        <select id="tool-cat-input" class="w-full rounded-xl bg-slate-800 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="productivity">⚡ 專注與效率</option>
+                            <option value="language">🈳 語言與學習</option>
+                            <option value="custom">✨ 自訂工具</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">標籤 (Tag)</label>
+                        <input id="tool-tag-input" type="text" placeholder="例如：主力工具" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">圖示樣式</label>
+                        <select id="tool-icon-input" class="w-full rounded-xl bg-slate-800 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="sparkles">✨ 星芒 (Sparkles)</option>
+                            <option value="languages">🈳 語言 (Languages)</option>
+                            <option value="globe">🌐 網頁 (Globe)</option>
+                            <option value="wrench">🔧 工具 (Wrench)</option>
+                            <option value="code-2">💻 程式碼 (Code)</option>
+                            <option value="bookmark">🔖 書籤 (Bookmark)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">強調漸層色</label>
+                        <select id="tool-color-input" class="w-full rounded-xl bg-slate-800 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="from-indigo-500 to-purple-600">靛藍紫韻</option>
+                            <option value="from-emerald-500 to-teal-600">翡翠青綠</option>
+                            <option value="from-sky-500 to-blue-600">晴空蔚藍</option>
+                            <option value="from-rose-500 to-orange-500">暮光暖橘</option>
+                            <option value="from-amber-500 to-yellow-600">琥珀流金</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">簡短說明</label>
+                    <input id="tool-desc-input" type="text" placeholder="一句話描述這個工具的用途..." class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-2">
+                    <button type="button" id="cancel-modal-btn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs sm:text-sm font-medium text-slate-300 transition">取消</button>
+                    <button type="submit" id="submit-modal-btn" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition">儲存工具</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 全域提示訊息 Toast -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        const STORAGE_KEY = 'nexus_hub_tools_v2';
+
+        // 精簡預設工具清單：僅保留「專注時光」與「日文轉換」兩張核心卡片
+        const DEFAULT_TOOLS = [
+            {
+                id: 'tool-todo-list',
+                name: '專注時光 Workspace',
+                desc: '自訂背景、環境白噪音與智慧聲音提醒待辦清單。',
+                url: './todo-list.html',
+                category: 'productivity',
+                tag: '專注待辦',
+                icon: 'sparkles',
+                color: 'from-indigo-500 to-purple-600'
+            },
+            {
+                id: 'tool-jp-romanizer',
+                name: '日文羅馬拼音與解析工具',
+                desc: '支援假名標註（Ruby Text）、多讀音切換與詞性解析。',
+                url: './jp-romanizer.html',
+                category: 'language',
+                tag: '日文解析',
+                icon: 'languages',
+                color: 'from-emerald-500 to-teal-600'
+            }
+        ];
+
+        let state = {
+            tools: [],
+            activeCategory: 'all',
+            searchQuery: ''
+        };
+
+        // 載入完整工具列表（允許對所有卡片進行編輯或刪除）
+        function loadTools() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    state.tools = JSON.parse(saved);
+                } else {
+                    state.tools = [...DEFAULT_TOOLS];
+                    saveTools();
+                }
+            } catch (e) {
+                state.tools = [...DEFAULT_TOOLS];
+            }
+        }
+
+        // 儲存所有工具設定至 LocalStorage
+        function saveTools() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tools));
+            } catch (e) {
+                showToast('儲存失敗，請檢查瀏覽器快取設定');
+            }
+        }
+
+        // 渲染工具卡片網格（帶有漸進式淡入動畫）
+        function renderTools() {
+            const grid = document.getElementById('tools-grid');
+            const query = state.searchQuery.toLowerCase().trim();
+
+            const filtered = state.tools.filter(tool => {
+                const matchCat = state.activeCategory === 'all' || tool.category === state.activeCategory;
+                const matchQuery = !query || 
+                    tool.name.toLowerCase().includes(query) || 
+                    (tool.desc && tool.desc.toLowerCase().includes(query)) || 
+                    (tool.tag && tool.tag.toLowerCase().includes(query));
+                return matchCat && matchQuery;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full rounded-3xl bg-slate-900/40 backdrop-blur-xl border border-white/10 p-12 text-center space-y-3">
+                        <div class="w-12 h-12 rounded-2xl bg-white/5 mx-auto flex items-center justify-center text-slate-400">
+                            <i data-lucide="folder-open" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-white">目前沒有符合的工具卡片</h3>
+                        <p class="text-xs text-slate-400">點擊右上角「新增工具」按鈕來建立你的專屬網頁捷徑</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            grid.innerHTML = filtered.map((tool, index) => {
+                const delay = Math.min(0.06 * index, 0.45);
+
+                return `
+                    <div class="tool-card animate-enter group relative rounded-3xl bg-slate-900/55 hover:bg-slate-900/80 backdrop-blur-xl border border-white/15 hover:border-indigo-400/50 p-6 flex flex-col justify-between gap-5" style="animation-delay: ${delay}s;">
+                        
+                        <!-- 卡片上半部：圖示、標籤與編輯/刪除操作 -->
+                        <div>
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br ${tool.color || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-white shadow-lg shrink-0">
+                                    <i data-lucide="${tool.icon || 'sparkles'}" class="w-6 h-6"></i>
+                                </div>
+
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/10 text-slate-300 border border-white/10">
+                                        ${escapeHTML(tool.tag || '工具')}
+                                    </span>
+                                    <button type="button" onclick="openEditModal('${tool.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/15 transition" title="編輯工具設定">
+                                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                    <button type="button" onclick="deleteTool('${tool.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition" title="刪除此工具">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <h3 class="text-lg font-bold text-white group-hover:text-indigo-300 transition mb-1.5">
+                                ${escapeHTML(tool.name)}
+                            </h3>
+                            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                                ${escapeHTML(tool.desc || '點擊下方按鈕立即開啟使用此工具。')}
+                            </p>
+                        </div>
+
+                        <!-- 卡片下半部：路徑顯示與開啟連結按鈕 -->
+                        <div class="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                            <span class="text-[11px] font-mono text-slate-500 truncate">
+                                ${escapeHTML(tool.url)}
+                            </span>
+                            <a href="${escapeHTML(tool.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 group-hover:bg-indigo-600 text-xs font-semibold text-white transition shrink-0">
+                                <span>開啟工具</span>
+                                <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // 開啟編輯視窗並填入現有資料
+        function openEditModal(id) {
+            const tool = state.tools.find(t => t.id === id);
+            if (!tool) return;
+
+            document.getElementById('modal-title').innerHTML = `
+                <i data-lucide="pencil" class="w-5 h-5 text-indigo-400"></i>
+                <span>編輯工具卡片</span>
+            `;
+            document.getElementById('tool-id-input').value = tool.id;
+            document.getElementById('tool-name-input').value = tool.name;
+            document.getElementById('tool-url-input').value = tool.url;
+            document.getElementById('tool-cat-input').value = tool.category || 'custom';
+            document.getElementById('tool-tag-input').value = tool.tag || '';
+            document.getElementById('tool-icon-input').value = tool.icon || 'sparkles';
+            document.getElementById('tool-color-input').value = tool.color || 'from-indigo-500 to-purple-600';
+            document.getElementById('tool-desc-input').value = tool.desc || '';
+
+            const modal = document.getElementById('tool-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        // 刪除工具卡片
+        function deleteTool(id) {
+            const target = state.tools.find(t => t.id === id);
+            if (!target) return;
+
+            state.tools = state.tools.filter(t => t.id !== id);
+            saveTools();
+            renderTools();
+            showToast(`已移除「${target.name}」`);
+        }
+
+        // 更新即時時鐘與時段問候語
+        function updateDateTime() {
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const hours = now.getHours();
+
+            document.getElementById('live-clock').textContent = `${pad(hours)}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+            const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+            document.getElementById('live-date').textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${days[now.getDay()]}`;
+
+            let greeting = '你好，歡迎回到工作台';
+            if (hours >= 5 && hours < 12) greeting = '早安，開啟高效專注的一天';
+            else if (hours >= 12 && hours < 18) greeting = '午安，繼續保持專注節奏';
+            else greeting = '晚安，享受寧靜的個人時光';
+
+            document.getElementById('greeting-text').textContent = greeting;
+        }
+
+        // Toast 提示框
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'px-4 py-2.5 rounded-xl bg-slate-800/95 border border-indigo-400/30 text-xs sm:text-sm text-white shadow-xl backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0';
+            toast.textContent = msg;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&#039;');
+        }
+
+        // 初始化綁定
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTools();
+            renderTools();
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+
+            // 分類切換事件
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.cat-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-600/25');
+                        b.classList.add('bg-white/5', 'text-slate-300', 'border', 'border-white/10');
+                    });
+                    btn.classList.add('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-600/25');
+                    btn.classList.remove('bg-white/5', 'text-slate-300', 'border', 'border-white/10');
+
+                    state.activeCategory = btn.dataset.category;
+                    renderTools();
+                });
+            });
+
+            // 搜尋框即時篩選
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                state.searchQuery = e.target.value;
+                renderTools();
+            });
+
+            // 新增 / 編輯工具 Modal 控制
+            const modal = document.getElementById('tool-modal');
+            const form = document.getElementById('tool-form');
+
+            const openAddModal = () => {
+                form.reset();
+                document.getElementById('tool-id-input').value = '';
+                document.getElementById('modal-title').innerHTML = `
+                    <i data-lucide="folder-plus" class="w-5 h-5 text-emerald-400"></i>
+                    <span>新增自訂工具卡片</span>
+                `;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                lucide.createIcons();
+            };
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            };
+
+            document.getElementById('open-add-modal-btn').addEventListener('click', openAddModal);
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('cancel-modal-btn').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            // 重設預設工具
+            document.getElementById('reset-tools-btn').addEventListener('click', () => {
+                state.tools = [...DEFAULT_TOOLS];
+                saveTools();
+                renderTools();
+                showToast('已重設為預設兩張工具卡片');
+            });
+
+            // 送出新增或編輯表單
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const editId = document.getElementById('tool-id-input').value.trim();
+                const name = document.getElementById('tool-name-input').value.trim();
+                const url = document.getElementById('tool-url-input').value.trim();
+                const category = document.getElementById('tool-cat-input').value;
+                const tag = document.getElementById('tool-tag-input').value.trim() || '自訂工具';
+                const icon = document.getElementById('tool-icon-input').value;
+                const color = document.getElementById('tool-color-input').value;
+                const desc = document.getElementById('tool-desc-input').value.trim();
+
+                if (!name || !url) return;
+
+                if (editId) {
+                    // 更新現有卡片
+                    const idx = state.tools.findIndex(t => t.id === editId);
+                    if (idx !== -1) {
+                        state.tools[idx] = { ...state.tools[idx], name, url, category, tag, icon, color, desc };
+                        showToast(`已更新「${name}」設定`);
+                    }
+                } else {
+                    // 新增卡片
+                    state.tools.push({
+                        id: 'tool_' + Date.now(),
+                        name,
+                        url,
+                        category,
+                        tag,
+                        icon,
+                        color,
+                        desc
+                    });
+                    showToast(`已成功新增「${name}」！`);
+                }
+
+                saveTools();
+                renderTools();
+                closeModal();
+            });
+        });
+    </script>
+</body>
+</html>

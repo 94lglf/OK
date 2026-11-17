@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專注時光・自訂背景與音樂待辦清單</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts (Noto Sans TC 與 Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="https://i.meee.com.tw/jBeltCH.webp">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes blurReveal {
+    from {
+        opacity: 0;
+        filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        filter: blur(0px);
+    }
+}
+
+body {
+    animation: blurReveal 0.8s ease-out forwards;
+}
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            display: none;
+            -webkit-appearance: none;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* 全螢幕自適應背景層 */
+        #bg-layer {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            transition: background-image 0.5s ease, background-color 0.5s ease;
+        }
+
+        /* 動態遮罩與模糊層，確保文字在任何背景皆清晰可讀 */
+        #bg-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            transition: backdrop-filter 0.2s ease, background-color 0.2s ease;
+        }
+
+        /* 自訂捲軸樣式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* 鬧鐘脈衝動畫效果 */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+        }
+        .alarm-pulse {
+            animation: pulse-ring 1.5s infinite;
+        }
+
+        /* 懸浮設定視窗過渡 */
+        #settings-modal-backdrop {
+            transition: opacity 0.25s ease;
+        }
+        #settings-floating-window {
+            transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform, left, top;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- 背景圖層與模糊遮罩 -->
+    <div id="bg-layer"></div>
+    <div id="bg-overlay"></div>
+
+    <!-- 頂部導覽列 (已調整為與下方內容等寬對齊) -->
+    <header class="w-full border-b border-white/15 bg-slate-900/40 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-xl font-bold tracking-tight text-white">專注時光 Workspace</h1>
+                    <p class="text-xs text-slate-300 hidden md:block">星號保護・完成自動封存・智慧聲音提醒</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- 頂部快捷背景音樂播放切換 -->
+                <button id="header-bgm-toggle" type="button" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-medium text-white transition active:scale-95" title="快速播放 / 暫停背景音樂">
+                    <i id="header-bgm-icon" data-lucide="play" class="w-3.5 h-3.5 text-indigo-300 fill-current"></i>
+                    <span id="header-bgm-label" class="hidden sm:inline">音樂已暫停</span>
+                </button>
+
+                <!-- 開啟懸浮設定視窗按鈕 -->
+                <button id="open-settings-btn" type="button" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600/85 hover:bg-indigo-500 border border-indigo-400/40 text-xs sm:text-sm font-medium text-white shadow-lg shadow-indigo-600/25 transition active:scale-95" title="開啟背景與音樂設定視窗">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">背景與音樂設定</span>
+                    <span class="sm:hidden">設定</span>
+                </button>
+
+                <!-- 即時數位時鐘 -->
+                <div class="text-right pl-2 sm:pl-3 border-l border-white/15">
+                    <div id="live-clock" class="text-base sm:text-xl font-bold font-mono tracking-wider text-white">00:00:00</div>
+                    <div id="live-date" class="text-[11px] text-slate-300 hidden sm:block">載入日期中...</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容區：自適應寬度容器，隨視窗拉伸流暢調整 -->
+    <main class="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <section class="flex flex-col gap-5 w-full">
+            
+            <!-- 任務進度與統計概覽 -->
+            <div class="rounded-2xl bg-slate-900/45 backdrop-blur-xl border border-white/15 p-5 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            工作區任務總覽
+                            <span class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200">
+                                ⭐ 星號事項受保護且完成後永久封存
+                            </span>
+                        </h2>
+                        <p id="task-summary-text" class="text-xs text-slate-300 mt-1">目前尚無任務，新增一項開始專注吧！</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span id="starred-count-pill" class="text-xs px-3 py-1.5 rounded-xl bg-yellow-500/20 border border-yellow-400/30 text-yellow-200 flex items-center gap-1.5">
+                            <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>
+                            <span>0 個星號保護</span>
+                        </span>
+                        <span id="active-alarm-count" class="text-xs px-3 py-1.5 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 flex items-center gap-1.5">
+                            <i data-lucide="alarm-clock" class="w-3.5 h-3.5"></i>
+                            <span>0 個待提醒</span>
+                        </span>
+                    </div>
+                </div>
+                <!-- 進度條 -->
+                <div class="w-full h-2.5 bg-black/30 rounded-full overflow-hidden p-0.5 border border-white/10">
+                    <div id="progress-bar" class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 主分頁導覽列：待辦清單 vs 獨立封存 vs 獨立垃圾桶 -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-slate-900/55 backdrop-blur-xl border border-white/15 shadow-lg">
+                    <button type="button" data-main-view="todos" class="main-view-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white shadow flex items-center gap-2 transition">
+                        <i data-lucide="list-todo" class="w-4 h-4"></i>
+                        <span>待辦清單</span>
+                        <span id="active-count-badge" class="px-2 py-0.5 rounded-full bg-white/20 text-xs">0</span>
+                    </button>
+
+                    <button type="button" data-main-view="archive" class="main-view-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-2 transition">
+                        <span>📦 封存</span>
+                        <span id="archive-count-badge" class="px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 text-xs">0</span>
+                    </button>
+
+                    <button type="button" data-main-view="trash" class="main-view-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 flex items-center gap-2 transition">
+                        <span>🗑️ 垃圾桶</span>
+                        <span id="trash-count-badge" class="px-2 py-0.5 rounded-full bg-rose-500/25 text-rose-200 text-xs">0</span>
+                    </button>
+                </div>
+
+                <!-- 依當前分頁顯示對應的子篩選或清理按鈕 -->
+                <div id="sub-controls-area" class="flex flex-wrap items-center gap-2">
+                    <!-- 待辦清單子篩選 -->
+                    <div id="todo-subfilters" class="flex gap-1 p-1 rounded-xl bg-slate-900/50 backdrop-blur-md border border-white/15">
+                        <button type="button" data-subfilter="all" class="subfilter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-white/20 text-white shadow transition">全部</button>
+                        <button type="button" data-subfilter="normal" class="subfilter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white transition">一般</button>
+                        <button type="button" data-subfilter="starred" class="subfilter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white transition flex items-center gap-1">
+                            <span>⭐ 重要</span>
+                        </button>
+                    </div>
+
+                    <!-- 封存分頁操作按鈕 -->
+                    <button id="clear-unstarred-archive-btn" type="button" class="hidden text-xs px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 transition flex items-center gap-1.5">
+                        <i data-lucide="eraser" class="w-3.5 h-3.5"></i>
+                        清除未加星號的封存
+                    </button>
+
+                    <!-- 垃圾桶分頁操作按鈕 -->
+                    <button id="empty-trash-btn" type="button" class="hidden text-xs px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 text-rose-200 transition flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        清空垃圾桶
+                    </button>
+                </div>
+            </div>
+
+            <!-- 新增待辦事項表單 (僅在「待辦清單」分頁顯示) -->
+            <form id="todo-form" class="rounded-2xl bg-slate-900/50 backdrop-blur-xl border border-white/20 p-5 shadow-xl space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <!-- 標題欄位 -->
+                    <div class="md:col-span-6 flex flex-col">
+                        <label for="todo-title" class="block text-xs font-medium text-slate-300 mb-1">待辦事項標題 <span class="text-rose-400">*</span></label>
+                        <div class="flex gap-2 w-full">
+                            <input id="todo-title" type="text" required placeholder="例如：完成專案簡報、喝水休息一下..." class="flex-1 rounded-xl bg-white/10 border border-white/15 px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            <!-- 新增時直接設定星號按鈕 -->
+                            <button id="new-todo-star-btn" type="button" data-starred="false" class="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-300 transition flex items-center justify-center shrink-0" title="設為加星號重要事項（受保護不可丟入垃圾桶）">
+                                <i data-lucide="star" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 提醒時間欄位 -->
+                    <div class="md:col-span-6 flex flex-col">
+                        <label for="todo-datetime" class="block text-xs font-medium text-slate-300 mb-1">
+                            提醒時間 <span class="text-slate-400 font-normal">(可留空不提醒)</span>
+                        </label>
+                        <div class="relative flex items-center w-full">
+                            <input id="todo-datetime" type="datetime-local" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 pr-24 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            
+                            <!-- 右側按鈕群組 -->
+                            <div class="absolute right-3.5 z-10 flex items-center gap-2">
+                                <button type="button" id="clear-todo-time-btn" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white flex items-center justify-center text-xs transition" title="清除提醒時間">
+                                    ✕
+                                </button>
+                                <button type="button" onclick="const input = document.getElementById('todo-datetime'); if(input.showPicker) input.showPicker(); else input.focus();" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition flex items-center justify-center cursor-pointer" title="選擇日期時間">
+                                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 備註說明與快捷按鈕、送出按鈕 -->
+                <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-end pt-1">
+                    <div class="flex-1">
+                        <label for="todo-note" class="block text-xs font-medium text-slate-300 mb-1">備註說明 (選填)</label>
+                        <input id="todo-note" type="text" placeholder="補充細節、連結或執行步驟..." class="w-full rounded-xl bg-white/10 border border-white/15 px-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    </div>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <button type="button" data-quick-min="5" class="quick-time-btn px-2.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-medium text-slate-200 transition whitespace-nowrap">+5分</button>
+                        <button type="button" data-quick-min="15" class="quick-time-btn px-2.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-medium text-slate-200 transition whitespace-nowrap">+15分</button>
+                        <button type="button" data-quick-min="30" class="quick-time-btn px-2.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-medium text-slate-200 transition whitespace-nowrap">+30分</button>
+                        <button type="button" data-quick-min="60" class="quick-time-btn px-2.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-medium text-slate-200 transition whitespace-nowrap">+1小時</button>
+                        <button type="submit" class="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition active:scale-95 whitespace-nowrap">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            新增任務
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- 任務清單渲染容器 -->
+            <div id="todo-list" class="space-y-3 pb-10"></div>
+        </section>
+    </main>
+
+    <!-- 懸浮式背景與音樂設定視窗 -->
+    <div id="settings-modal-backdrop" class="fixed inset-0 z-40 hidden bg-black/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+        <div id="settings-floating-window" class="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl bg-slate-900/90 backdrop-blur-2xl border border-white/25 shadow-2xl overflow-hidden">
+            
+            <!-- 懸浮視窗標題列 -->
+            <div id="settings-drag-handle" class="px-5 py-4 border-b border-white/15 bg-white/5 flex items-center justify-between select-none cursor-grab active:cursor-grabbing shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-500/25 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            背景與音樂氛圍設定
+                            <span class="hidden sm:inline-flex items-center gap-1 text-[11px] font-normal px-2 py-0.5 rounded-md bg-white/10 text-slate-300">
+                                <i data-lucide="move" class="w-3 h-3"></i> 可拖曳視窗
+                            </span>
+                        </h2>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="reset-window-pos-btn" type="button" class="hidden text-xs px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition" title="將視窗置中">置中</button>
+                    <button id="close-settings-btn" type="button" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-rose-500/30 hover:text-rose-200 border border-white/10 flex items-center justify-center text-slate-300 transition active:scale-95" title="關閉設定視窗 (Esc)">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 懸浮視窗內部可捲動內容區 -->
+            <div class="p-5 overflow-y-auto space-y-5">
+                
+                <!-- 1. 背景音樂與白噪音播放器 -->
+                <section class="rounded-2xl bg-white/5 border border-white/10 p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-3.5">
+                        <h3 class="text-sm sm:text-base font-semibold flex items-center gap-2 text-white">
+                            <i data-lucide="headphones" class="w-4 h-4 text-indigo-400"></i>
+                            環境背景音樂 (BGM)
+                        </h3>
+                        <span id="bgm-status-badge" class="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300">已暫停</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-black/35 mb-4 text-xs font-medium">
+                        <button type="button" data-bgm-tab="synth" class="bgm-tab-btn py-2 px-2 rounded-lg bg-indigo-600 text-white shadow transition">內建療癒音</button>
+                        <button type="button" data-bgm-tab="file" class="bgm-tab-btn py-2 px-2 rounded-lg text-slate-300 hover:text-white transition">本機音檔</button>
+                        <button type="button" data-bgm-tab="url" class="bgm-tab-btn py-2 px-2 rounded-lg text-slate-300 hover:text-white transition">串流網址</button>
+                    </div>
+
+                    <div id="bgm-panel-synth" class="space-y-2.5 mb-4">
+                        <label class="block text-xs text-slate-300">選擇環境音景（無需網路、零延遲）：</label>
+                        <select id="synth-preset-select" class="w-full rounded-xl bg-white/10 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="rain" class="bg-slate-800">🌧️ 靜謐夜雨 (粉紅噪音 + 溫潤低頻)</option>
+                            <option value="meditation" class="bg-slate-800">🧘 深度冥想和弦 (溫暖泛音共鳴)</option>
+                            <option value="lofi" class="bg-slate-800">☕ 深夜咖啡廳白噪音 (柔和環境音)</option>
+                            <option value="binaural" class="bg-slate-800">🧠 α波專注頻率 (432Hz 舒緩音波)</option>
+                        </select>
+                    </div>
+
+                    <div id="bgm-panel-file" class="hidden space-y-2.5 mb-4">
+                        <label class="flex flex-col items-center justify-center w-full h-22 border-2 border-dashed border-white/20 hover:border-indigo-400 rounded-xl cursor-pointer bg-white/5 hover:bg-white/10 transition p-3 text-center">
+                            <i data-lucide="music" class="w-5 h-5 text-indigo-400 mb-1"></i>
+                            <span id="bgm-file-name" class="text-xs text-slate-200 truncate max-w-full">點擊選擇 MP3 / WAV / OGG 音訊</span>
+                            <input id="bgm-file-input" type="file" accept="audio/*" class="hidden">
+                        </label>
+                    </div>
+
+                    <div id="bgm-panel-url" class="hidden space-y-2 mb-4">
+                        <label class="block text-xs text-slate-300">貼上音訊直連網址 (.mp3 / .ogg)：</label>
+                        <div class="flex gap-2">
+                            <input id="bgm-url-input" type="url" placeholder="https://example.com/music.mp3" class="flex-1 rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button id="bgm-url-apply" type="button" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition">載入</button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-2 border-t border-white/10">
+                        <button id="bgm-play-btn" type="button" class="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 transition active:scale-95 shrink-0" title="播放 / 暫停">
+                            <i id="bgm-play-icon" data-lucide="play" class="w-4 h-4 fill-current"></i>
+                        </button>
+                        
+                        <button id="bgm-loop-btn" type="button" class="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/30 transition shrink-0" title="單曲循環：開啟">
+                            <i data-lucide="repeat" class="w-4 h-4"></i>
+                        </button>
+
+                        <div class="flex-1 flex items-center gap-2 bg-black/25 px-3 py-2 rounded-xl border border-white/10">
+                            <i data-lucide="volume-2" class="w-4 h-4 text-slate-300 shrink-0"></i>
+                            <input id="bgm-volume" type="range" min="0" max="1" step="0.01" value="0.4" class="w-full accent-indigo-500 cursor-pointer h-1.5 bg-white/20 rounded-lg">
+                            <span id="bgm-volume-label" class="text-xs font-mono text-slate-300 w-9 text-right">40%</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. 提醒鬧鐘音效設定 -->
+                <section class="rounded-2xl bg-white/5 border border-white/10 p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-3.5">
+                        <h3 class="text-sm sm:text-base font-semibold flex items-center gap-2 text-white">
+                            <i data-lucide="bell-ring" class="w-4 h-4 text-rose-400"></i>
+                            任務提醒音效設定
+                        </h3>
+                        <button id="test-alarm-btn" type="button" class="text-xs px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/30 text-rose-200 flex items-center gap-1.5 transition active:scale-95">
+                            <i data-lucide="volume-1" class="w-3.5 h-3.5"></i> 試聽鈴聲
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
+                        <div>
+                            <label class="block text-xs text-slate-300 mb-1.5">提示音風格 / 音源：</label>
+                            <select id="alarm-sound-select" class="w-full rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+                                <option value="chime" class="bg-slate-800">🔔 溫柔風鈴聲 (明亮悅耳)</option>
+                                <option value="chord" class="bg-slate-800">🎹 悠揚鋼琴和弦 (優雅提示)</option>
+                                <option value="digital" class="bg-slate-800">⏰ 清脆數位鬧鐘 (清晰醒腦)</option>
+                                <option value="custom" class="bg-slate-800">🎵 自訂上傳音效檔案</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center gap-2 bg-black/25 px-3 py-2.5 rounded-xl border border-white/10 self-end">
+                            <span class="text-xs text-slate-300 shrink-0">提醒音量</span>
+                            <input id="alarm-volume" type="range" min="0.1" max="1" step="0.05" value="0.8" class="w-full accent-rose-500 cursor-pointer h-1.5 bg-white/20 rounded-lg">
+                            <span id="alarm-volume-label" class="text-xs font-mono text-slate-300 w-9 text-right">80%</span>
+                        </div>
+                    </div>
+
+                    <div id="alarm-custom-panel" class="hidden pt-2 border-t border-white/10">
+                        <label class="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-dashed border-rose-400/40 hover:border-rose-400 rounded-xl cursor-pointer bg-white/5 hover:bg-white/10 transition text-center">
+                            <i data-lucide="upload" class="w-4 h-4 text-rose-400"></i>
+                            <span id="alarm-file-name" class="text-xs text-slate-200 truncate max-w-full">點擊上傳自訂鬧鈴音訊 (.mp3 / .wav / .ogg)</span>
+                            <input id="alarm-file-input" type="file" accept="audio/*" class="hidden">
+                        </label>
+                    </div>
+                </section>
+
+                <!-- 3. 自訂背景與視覺氛圍 -->
+                <section class="rounded-2xl bg-white/5 border border-white/10 p-4 sm:p-5">
+                    <h3 class="text-sm sm:text-base font-semibold flex items-center gap-2 text-white mb-3.5">
+                        <i data-lucide="image" class="w-4 h-4 text-emerald-400"></i>
+                        自訂背景與視覺氛圍
+                    </h3>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-300 mb-2">精選預設背景：</label>
+                        <div id="preset-bg-grid" class="grid grid-cols-4 gap-2.5"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 mb-4">
+                        <label class="sm:col-span-4 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-medium text-white cursor-pointer transition">
+                            <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            上傳本機圖片
+                            <input id="bg-file-input" type="file" accept="image/*" class="hidden">
+                        </label>
+                        <div class="sm:col-span-8 flex gap-2">
+                            <input id="bg-url-input" type="url" placeholder="或貼上圖片網址 (https://...)" class="flex-1 rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <button id="bg-url-apply" type="button" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-medium text-white transition">套用</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-white/10">
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-300 mb-1">
+                                <span>背景模糊度</span>
+                                <span id="blur-val-label" class="font-mono">8px</span>
+                            </div>
+                            <input id="bg-blur-slider" type="range" min="0" max="24" step="1" value="8" class="w-full accent-emerald-500 cursor-pointer h-1.5 bg-white/20 rounded-lg">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-300 mb-1">
+                                <span>遮罩暗度</span>
+                                <span id="dim-val-label" class="font-mono">45%</span>
+                            </div>
+                            <input id="bg-dim-slider" type="range" min="10" max="85" step="5" value="45" class="w-full accent-emerald-500 cursor-pointer h-1.5 bg-white/20 rounded-lg">
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- 到期提醒彈出視窗 -->
+    <div id="alarm-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+        <div class="w-full max-w-md rounded-3xl bg-slate-900/95 border-2 border-rose-500/70 p-6 shadow-2xl alarm-pulse text-center space-y-5">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                <i data-lucide="bell-ring" class="w-8 h-8 animate-bounce"></i>
+            </div>
+            
+            <div class="space-y-1.5">
+                <span class="inline-block text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-rose-500/20 text-rose-300">
+                    ⏰ 任務時間提醒
+                </span>
+                <h3 id="alarm-modal-title" class="text-xl font-bold text-white break-words">任務標題</h3>
+                <p id="alarm-modal-note" class="text-sm text-slate-300 break-words"></p>
+                <p id="alarm-modal-time" class="text-xs font-mono text-rose-300 pt-1"></p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <button id="alarm-snooze-btn" type="button" class="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-sm font-medium text-white flex items-center justify-center gap-2 transition active:scale-95">
+                    <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+                    延後 5 分鐘提醒
+                </button>
+                <button id="alarm-complete-btn" type="button" class="py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                    完成並自動封存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全域提示訊息 Toast -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
+
+    <script>
+        const STORAGE_KEYS = {
+            TODOS: 'focus_workspace_todos_v2',
+            ARCHIVE: 'focus_workspace_archive_v2',
+            TRASH: 'focus_workspace_trash_v2',
+            SETTINGS: 'focus_workspace_settings_v2'
+        };
+
+        const PRESET_BACKGROUNDS = [
+            {
+                id: 'aurora',
+                name: '極光深邃',
+                type: 'gradient',
+                value: 'radial-gradient(circle at 15% 20%, #312e81 0%, transparent 45%), radial-gradient(circle at 85% 30%, #065f46 0%, transparent 50%), radial-gradient(circle at 50% 85%, #4c1d95 0%, #090d16 100%)',
+                thumb: 'linear-gradient(135deg, #312e81, #065f46)'
+            },
+            {
+                id: 'sunset',
+                name: '暮光暖霞',
+                type: 'gradient',
+                value: 'radial-gradient(circle at 20% 20%, #9a3412 0%, transparent 50%), radial-gradient(circle at 80% 80%, #831843 0%, #111827 100%)',
+                thumb: 'linear-gradient(135deg, #ea580c, #db2777)'
+            },
+            {
+                id: 'ocean',
+                name: '靜謐深海',
+                type: 'gradient',
+                value: 'radial-gradient(circle at 75% 15%, #0369a1 0%, transparent 50%), radial-gradient(circle at 20% 85%, #115e59 0%, #020617 100%)',
+                thumb: 'linear-gradient(135deg, #0284c7, #0d9488)'
+            },
+            {
+                id: 'minimal-dark',
+                name: '極簡曜石',
+                type: 'color',
+                value: '#111827',
+                thumb: '#111827'
+            }
+        ];
+
+        let state = {
+            todos: [],
+            archivedTodos: [],
+            trashedTodos: [],
+            mainView: 'todos',
+            subFilter: 'all',
+            activeAlarmTodoId: null,
+            settings: {
+                bgType: 'gradient',
+                bgValue: PRESET_BACKGROUNDS[0].value,
+                bgBlur: 8,
+                bgDim: 45,
+                bgmMode: 'synth',
+                synthPreset: 'rain',
+                bgmUrl: '',
+                bgmVolume: 0.4,
+                bgmLoop: true,
+                alarmSound: 'chime',
+                alarmVolume: 0.8,
+                customAlarmDataUrl: ''
+            }
+        };
+
+        function loadState() {
+            try {
+                const savedTodos = localStorage.getItem(STORAGE_KEYS.TODOS);
+                if (savedTodos) state.todos = JSON.parse(savedTodos);
+
+                const savedArchive = localStorage.getItem(STORAGE_KEYS.ARCHIVE);
+                if (savedArchive) state.archivedTodos = JSON.parse(savedArchive);
+
+                const savedTrash = localStorage.getItem(STORAGE_KEYS.TRASH);
+                if (savedTrash) state.trashedTodos = JSON.parse(savedTrash);
+
+                const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+                if (savedSettings) {
+                    state.settings = { ...state.settings, ...JSON.parse(savedSettings) };
+                }
+            } catch (e) {
+                console.error('讀取 LocalStorage 失敗:', e);
+            }
+        }
+
+        function saveAllTaskLists() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.TODOS, JSON.stringify(state.todos));
+                localStorage.setItem(STORAGE_KEYS.ARCHIVE, JSON.stringify(state.archivedTodos));
+                localStorage.setItem(STORAGE_KEYS.TRASH, JSON.stringify(state.trashedTodos));
+            } catch (e) {
+                showToast('儲存空間已滿，部分資料可能無法保存', 'error');
+            }
+        }
+
+        function saveSettings() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
+            } catch (e) {
+                showToast('設定檔案過大，部分內容無法寫入快取', 'warning');
+            }
+        }
+
+        /**
+         * ==========================================
+         * 音效引擎
+         * ==========================================
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isPlayingBgm = false;
+                this.bgmGain = null;
+                this.synthNodes = [];
+                this.audioElement = new Audio();
+                this.audioElement.crossOrigin = 'anonymous';
+                
+                this.alarmAudio = new Audio();
+                this.alarmInterval = null;
+
+                this.audioElement.addEventListener('ended', () => {
+                    if (!state.settings.bgmLoop) {
+                        this.stopBgm();
+                        updateBgmUI();
+                    }
+                });
+            }
+
+            initContext() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            startBgm() {
+                this.stopBgm(false);
+                const mode = state.settings.bgmMode;
+
+                if (mode === 'synth') {
+                    this.initContext();
+                    this.bgmGain = this.ctx.createGain();
+                    this.bgmGain.gain.setValueAtTime(state.settings.bgmVolume * 0.5, this.ctx.currentTime);
+                    this.bgmGain.connect(this.ctx.destination);
+
+                    const preset = state.settings.synthPreset;
+                    if (preset === 'rain' || preset === 'lofi') {
+                        this.createNoiseGenerator(preset === 'rain' ? 'pink' : 'brown');
+                    } else if (preset === 'meditation') {
+                        this.createDroneChord([174.61, 220.00, 261.63, 329.63]);
+                    } else if (preset === 'binaural') {
+                        this.createBinauralBeat(216, 226);
+                    }
+                    this.isPlayingBgm = true;
+                } else {
+                    if (!this.audioElement.src) {
+                        showToast('請先選擇本機音檔或載入串流網址', 'warning');
+                        return;
+                    }
+                    this.audioElement.loop = state.settings.bgmLoop;
+                    this.audioElement.volume = state.settings.bgmVolume;
+                    this.audioElement.play().then(() => {
+                        this.isPlayingBgm = true;
+                        updateBgmUI();
+                    }).catch(() => {
+                        showToast('瀏覽器阻擋自動播放，請再點擊一次播放鍵', 'warning');
+                    });
+                }
+                updateBgmUI();
+            }
+
+            stopBgm(updateUI = true) {
+                this.synthNodes.forEach(node => {
+                    try { node.stop && node.stop(); } catch (e) {}
+                    try { node.disconnect && node.disconnect(); } catch (e) {}
+                });
+                this.synthNodes = [];
+
+                this.audioElement.pause();
+                this.isPlayingBgm = false;
+                if (updateUI) updateBgmUI();
+            }
+
+            toggleBgm() {
+                if (this.isPlayingBgm) {
+                    this.stopBgm();
+                } else {
+                    this.startBgm();
+                }
+            }
+
+            setBgmVolume(val) {
+                state.settings.bgmVolume = parseFloat(val);
+                if (this.bgmGain && this.ctx) {
+                    this.bgmGain.gain.setTargetAtTime(state.settings.bgmVolume * 0.5, this.ctx.currentTime, 0.05);
+                }
+                this.audioElement.volume = state.settings.bgmVolume;
+            }
+
+            createNoiseGenerator(type) {
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+
+                if (type === 'pink') {
+                    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        b0 = 0.99886 * b0 + white * 0.0555179;
+                        b1 = 0.99332 * b1 + white * 0.0750759;
+                        b2 = 0.96900 * b2 + white * 0.1538520;
+                        b3 = 0.86650 * b3 + white * 0.3104856;
+                        b4 = 0.55000 * b4 + white * 0.5329522;
+                        b5 = -0.7616 * b5 - white * 0.0168980;
+                        output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                        output[i] *= 0.04;
+                        b6 = white * 0.115926;
+                    }
+                } else {
+                    let lastOut = 0.0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        output[i] = (lastOut + (0.02 * white)) / 1.02;
+                        lastOut = output[i];
+                        output[i] *= 0.18;
+                    }
+                }
+
+                const whiteNoise = this.ctx.createBufferSource();
+                whiteNoise.buffer = noiseBuffer;
+                whiteNoise.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = type === 'pink' ? 1100 : 500;
+
+                whiteNoise.connect(filter);
+                filter.connect(this.bgmGain);
+                whiteNoise.start(0);
+                this.synthNodes.push(whiteNoise, filter);
+            }
+
+            createDroneChord(freqs) {
+                freqs.forEach(f => {
+                    const osc = this.ctx.createOscillator();
+                    const oscGain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    oscGain.gain.value = 0.12 / freqs.length;
+                    osc.connect(oscGain);
+                    oscGain.connect(this.bgmGain);
+                    osc.start();
+                    this.synthNodes.push(osc, oscGain);
+                });
+            }
+
+            createBinauralBeat(leftFreq, rightFreq) {
+                const merger = this.ctx.createChannelMerger(2);
+                const oscL = this.ctx.createOscillator();
+                const oscR = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0.12;
+
+                oscL.frequency.value = leftFreq;
+                oscR.frequency.value = rightFreq;
+
+                oscL.connect(merger, 0, 0);
+                oscR.connect(merger, 0, 1);
+                merger.connect(gain);
+                gain.connect(this.bgmGain);
+
+                oscL.start();
+                oscR.start();
+                this.synthNodes.push(oscL, oscR, merger, gain);
+            }
+
+            playAlarmOnce() {
+                const style = state.settings.alarmSound;
+                const vol = state.settings.alarmVolume;
+
+                if (style === 'custom') {
+                    if (!state.settings.customAlarmDataUrl) {
+                        showToast('尚未上傳自訂提醒音效，將暫時使用預設風鈴聲', 'warning');
+                        this.playSynthAlarm('chime', vol);
+                        return;
+                    }
+                    this.alarmAudio.src = state.settings.customAlarmDataUrl;
+                    this.alarmAudio.volume = vol;
+                    this.alarmAudio.currentTime = 0;
+                    this.alarmAudio.play().catch(err => {
+                        console.error('播放自訂提醒音失敗:', err);
+                        showToast('無法播放自訂提醒音效', 'error');
+                    });
+                } else {
+                    this.playSynthAlarm(style, vol);
+                }
+            }
+
+            playSynthAlarm(style, vol) {
+                this.initContext();
+                const now = this.ctx.currentTime;
+
+                const playTone = (freq, startTime, duration, type = 'sine', gainScale = 1) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, startTime);
+
+                    gain.gain.setValueAtTime(0.001, startTime);
+                    gain.gain.exponentialRampToValueAtTime(Math.max(0.01, vol * 0.4 * gainScale), startTime + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + duration + 0.05);
+                };
+
+                if (style === 'chime') {
+                    playTone(1046.50, now, 0.8, 'sine', 0.9);
+                    playTone(1318.51, now + 0.15, 0.8, 'sine', 0.8);
+                    playTone(1567.98, now + 0.30, 1.0, 'sine', 0.8);
+                    playTone(1975.53, now + 0.45, 1.2, 'sine', 0.7);
+                } else if (style === 'chord') {
+                    [523.25, 659.25, 783.99, 987.77].forEach((f, idx) => {
+                        playTone(f, now + idx * 0.06, 1.4, 'triangle', 0.6);
+                    });
+                } else {
+                    playTone(880, now, 0.15, 'square', 0.35);
+                    playTone(880, now + 0.2, 0.15, 'square', 0.35);
+                    playTone(1174.66, now + 0.45, 0.25, 'square', 0.4);
+                }
+            }
+
+            startContinuousAlarm() {
+                this.stopContinuousAlarm();
+                this.playAlarmOnce();
+                this.alarmInterval = setInterval(() => {
+                    this.playAlarmOnce();
+                }, state.settings.alarmSound === 'custom' ? 3000 : 2500);
+            }
+
+            stopContinuousAlarm() {
+                if (this.alarmInterval) {
+                    clearInterval(this.alarmInterval);
+                    this.alarmInterval = null;
+                }
+                this.alarmAudio.pause();
+            }
+        }
+
+        const soundEngine = new SoundEngine();
+
+        /**
+         * ==========================================
+         * 待辦事項核心邏輯
+         * ==========================================
+         */
+        function addTodo(title, note, remindAtStr, isStarred = false) {
+            const newTodo = {
+                id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                title: title.trim(),
+                note: note.trim(),
+                remindAt: remindAtStr ? new Date(remindAtStr).toISOString() : null,
+                starred: Boolean(isStarred),
+                completed: false,
+                reminded: false,
+                createdAt: new Date().toISOString()
+            };
+
+            state.todos.unshift(newTodo);
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast(isStarred ? '⭐ 已新增受星號保護的待辦事項' : '已新增待辦事項', 'success');
+        }
+
+        function toggleStarTodo(id, source = 'todos') {
+            const list = source === 'archive' ? state.archivedTodos : state.todos;
+            const item = list.find(t => t.id === id);
+            if (!item) return;
+
+            item.starred = !item.starred;
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast(
+                item.starred ? '⭐ 已加上星號保護！此事項無法被丟入垃圾桶' : '已取消星號保護',
+                item.starred ? 'success' : 'info'
+            );
+        }
+
+        function completeAndArchiveTodo(id) {
+            const index = state.todos.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            if (state.activeAlarmTodoId === id) {
+                closeAlarmModal();
+            }
+
+            const [completedTask] = state.todos.splice(index, 1);
+            completedTask.completed = true;
+            completedTask.completedAt = new Date().toISOString();
+
+            state.archivedTodos.unshift(completedTask);
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast('✅ 任務已完成並自動移入「📦 封存」區！', 'success');
+        }
+
+        function moveTodoToTrash(id) {
+            const index = state.todos.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const target = state.todos[index];
+            if (target.starred) {
+                showToast('⭐ 此為加星號的重要事項，無法丟入垃圾桶！請先取消星號。', 'warning');
+                return;
+            }
+
+            if (state.activeAlarmTodoId === id) {
+                closeAlarmModal();
+            }
+
+            const [trashedTask] = state.todos.splice(index, 1);
+            trashedTask.deletedAt = new Date().toISOString();
+            state.trashedTodos.unshift(trashedTask);
+
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast('🗑️ 已移至垃圾桶（可隨時還原）', 'info');
+        }
+
+        function restoreFromArchive(id) {
+            const index = state.archivedTodos.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const [task] = state.archivedTodos.splice(index, 1);
+            task.completed = false;
+            delete task.completedAt;
+            if (task.remindAt && new Date(task.remindAt).getTime() <= Date.now()) {
+                task.reminded = true;
+            }
+
+            state.todos.unshift(task);
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast('已從封存區還原回待辦清單', 'success');
+        }
+
+        function deleteArchivedItem(id) {
+            const index = state.archivedTodos.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const target = state.archivedTodos[index];
+            if (target.starred) {
+                showToast('⭐ 此封存事項帶有星號保護，無法刪除！請先取消星號。', 'warning');
+                return;
+            }
+
+            const [trashedTask] = state.archivedTodos.splice(index, 1);
+            trashedTask.deletedAt = new Date().toISOString();
+            state.trashedTodos.unshift(trashedTask);
+
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast('🗑️ 已將封存項目移至垃圾桶（可隨時還原）', 'info');
+        }
+
+        function restoreFromTrash(id) {
+            const index = state.trashedTodos.findIndex(t => t.id === id);
+            if (index === -1) return;
+
+            const [task] = state.trashedTodos.splice(index, 1);
+            delete task.deletedAt;
+            if (task.remindAt && new Date(task.remindAt).getTime() <= Date.now()) {
+                task.reminded = true;
+            }
+
+            state.todos.unshift(task);
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast('已從垃圾桶還原回待辦清單', 'success');
+        }
+
+        function permanentlyDeleteFromTrash(id) {
+            state.trashedTodos = state.trashedTodos.filter(t => t.id !== id);
+            saveAllTaskLists();
+            renderCurrentView();
+            showToast('已永久刪除該任務', 'info');
+        }
+
+        function snoozeTodo(id, minutes = 5) {
+            const todo = state.todos.find(t => t.id === id);
+            if (!todo) return;
+
+            const nextTime = new Date(Date.now() + minutes * 60 * 1000);
+            todo.remindAt = nextTime.toISOString();
+            todo.reminded = false;
+            saveAllTaskLists();
+            renderCurrentView();
+            closeAlarmModal();
+            showToast(`已延後 ${minutes} 分鐘提醒`, 'info');
+        }
+
+        function checkReminders() {
+            const now = Date.now();
+
+            if (state.activeAlarmTodoId) {
+                const activeTodo = state.todos.find(t => t.id === state.activeAlarmTodoId);
+                if (!activeTodo || activeTodo.completed || !activeTodo.remindAt) {
+                    closeAlarmModal();
+                }
+                return;
+            }
+
+            const dueTodo = state.todos.find(t => {
+                if (t.completed || !t.remindAt || t.reminded) return false;
+                const targetTime = new Date(t.remindAt).getTime();
+                return !isNaN(targetTime) && now >= targetTime;
+            });
+
+            if (dueTodo) {
+                dueTodo.reminded = true;
+                saveAllTaskLists();
+                renderCurrentView();
+                triggerAlarmModal(dueTodo);
+            }
+        }
+
+        function triggerAlarmModal(todo) {
+            state.activeAlarmTodoId = todo.id;
+            document.getElementById('alarm-modal-title').textContent = (todo.starred ? '⭐ ' : '') + todo.title;
+            document.getElementById('alarm-modal-note').textContent = todo.note || '無額外備註';
+            document.getElementById('alarm-modal-time').textContent = '設定時間：' + formatDateTime(todo.remindAt);
+
+            const modal = document.getElementById('alarm-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            soundEngine.startContinuousAlarm();
+        }
+
+        function closeAlarmModal() {
+            state.activeAlarmTodoId = null;
+            const modal = document.getElementById('alarm-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            soundEngine.stopContinuousAlarm();
+        }
+
+        /**
+         * ==========================================
+         * 介面渲染與背景控制
+         * ==========================================
+         */
+        function applyBackgroundSettings() {
+            const bgLayer = document.getElementById('bg-layer');
+            const bgOverlay = document.getElementById('bg-overlay');
+            const { bgType, bgValue, bgBlur, bgDim } = state.settings;
+
+            if (bgType === 'image') {
+                bgLayer.style.backgroundImage = `url("${bgValue}")`;
+                bgLayer.style.backgroundColor = '#0f172a';
+            } else if (bgType === 'gradient') {
+                bgLayer.style.backgroundImage = bgValue;
+                bgLayer.style.backgroundColor = '#0f172a';
+            } else {
+                bgLayer.style.backgroundImage = 'none';
+                bgLayer.style.backgroundColor = bgValue;
+            }
+
+            bgOverlay.style.backdropFilter = `blur(${bgBlur}px)`;
+            bgOverlay.style.webkitBackdropFilter = `blur(${bgBlur}px)`;
+            bgOverlay.style.backgroundColor = `rgba(10, 15, 28, ${bgDim / 100})`;
+
+            document.getElementById('bg-blur-slider').value = bgBlur;
+            document.getElementById('blur-val-label').textContent = `${bgBlur}px`;
+            document.getElementById('bg-dim-slider').value = bgDim;
+            document.getElementById('dim-val-label').textContent = `${bgDim}%`;
+        }
+
+        function renderPresetBackgrounds() {
+            const grid = document.getElementById('preset-bg-grid');
+            grid.innerHTML = '';
+
+            PRESET_BACKGROUNDS.forEach(bg => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'group relative h-12 rounded-xl overflow-hidden border-2 border-white/20 hover:border-white transition focus:outline-none';
+                btn.style.background = bg.thumb;
+                btn.title = bg.name;
+
+                btn.innerHTML = `
+                    <span class="absolute inset-x-0 bottom-0 bg-black/50 text-[10px] text-white py-0.5 text-center truncate px-1">
+                        ${bg.name}
+                    </span>
+                `;
+
+                btn.addEventListener('click', () => {
+                    state.settings.bgType = bg.type;
+                    state.settings.bgValue = bg.value;
+                    saveSettings();
+                    applyBackgroundSettings();
+                });
+
+                grid.appendChild(btn);
+            });
+        }
+
+        function handleImageUpload(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 1600;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedDataUrl = canvas.toDataURL('image/peg', 0.8);
+                    state.settings.bgType = 'image';
+                    state.settings.bgValue = compressedDataUrl;
+                    saveSettings();
+                    applyBackgroundSettings();
+                    showToast('已套用自訂背景圖片', 'success');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderCurrentView() {
+            const listEl = document.getElementById('todo-list');
+            const activeCount = state.todos.length;
+            const archiveCount = state.archivedTodos.length;
+            const trashCount = state.trashedTodos.length;
+            const totalWork = activeCount + archiveCount;
+
+            const starredCount = state.todos.filter(t => t.starred).length + state.archivedTodos.filter(t => t.starred).length;
+            const pendingAlarmCount = state.todos.filter(t => !t.completed && t.remindAt && !t.reminded).length;
+
+            document.getElementById('active-count-badge').textContent = activeCount;
+            document.getElementById('archive-count-badge').textContent = archiveCount;
+            document.getElementById('trash-count-badge').textContent = trashCount;
+
+            const pct = totalWork === 0 ? 0 : Math.round((archiveCount / totalWork) * 100);
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('task-summary-text').textContent = totalWork === 0
+                ? '目前尚無任務，新增一項開始專注吧！'
+                : `進行中 ${activeCount} 項・已封存完成 ${archiveCount} 項（完成率 ${pct}%）`;
+
+            document.getElementById('starred-count-pill').innerHTML = `
+                <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>
+                <span>${starredCount} 個星號保護</span>
+            `;
+            document.getElementById('active-alarm-count').innerHTML = `
+                <i data-lucide="alarm-clock" class="w-3.5 h-3.5"></i>
+                <span>${pendingAlarmCount} 個待提醒</span>
+            `;
+
+            const todoForm = document.getElementById('todo-form');
+            const todoSubfilters = document.getElementById('todo-subfilters');
+            const clearArchiveBtn = document.getElementById('clear-unstarred-archive-btn');
+            const emptyTrashBtn = document.getElementById('empty-trash-btn');
+
+            todoForm.classList.toggle('hidden', state.mainView !== 'todos');
+            todoSubfilters.classList.toggle('hidden', state.mainView !== 'todos');
+            clearArchiveBtn.classList.toggle('hidden', state.mainView !== 'archive');
+            emptyTrashBtn.classList.toggle('hidden', state.mainView !== 'trash');
+
+            if (state.mainView === 'archive') {
+                if (archiveCount === 0) {
+                    listEl.innerHTML = `
+                        <div class="rounded-2xl bg-slate-900/35 backdrop-blur-md border border-white/10 p-10 text-center text-slate-300">
+                            <div class="text-3xl mb-2">📦</div>
+                            <p class="text-sm font-semibold text-white">封存區目前是空的</p>
+                            <p class="text-xs text-slate-400 mt-1">在待辦清單勾選「完成」的任務都會自動歸納至此處保存</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                listEl.innerHTML = state.archivedTodos.map(todo => `
+                    <div class="rounded-2xl bg-slate-900/45 backdrop-blur-xl border ${todo.starred ? 'border-yellow-400/35' : 'border-emerald-400/20'} p-4 shadow-lg flex items-center justify-between gap-3.5">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <button type="button" onclick="toggleStarTodo('${todo.id}', 'archive')" class="p-1.5 rounded-lg transition ${todo.starred ? 'text-yellow-400 bg-yellow-400/15' : 'text-slate-400 hover:text-yellow-300 hover:bg-white/10'}" title="${todo.starred ? '已受星號保護（點擊取消星號）' : '點擊加上星號保護'}">
+                                <i data-lucide="star" class="w-4 h-4 ${todo.starred ? 'fill-current' : ''}"></i>
+                            </button>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> 已完成封存
+                                    </span>
+                                    ${todo.starred ? `<span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-200 border border-yellow-400/30">⭐ 星號保護</span>` : ''}
+                                    <h3 class="text-base font-semibold break-words text-slate-200 line-through opacity-85">
+                                        ${escapeHTML(todo.title)}
+                                    </h3>
+                                </div>
+                                ${todo.note ? `<p class="text-xs text-slate-300 break-words leading-relaxed mb-1">${escapeHTML(todo.note)}</p>` : ''}
+                                <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                                    <span>完成封存時間：${formatDateTime(todo.completedAt)}</span>
+                                    ${todo.remindAt ? `<span>原定提醒：${formatDateTime(todo.remindAt)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onclick="restoreFromArchive('${todo.id}')" class="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/30 text-indigo-200 text-xs font-medium flex items-center gap-1 transition" title="取消完成並還原回待辦清單">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                <span>還原</span>
+                            </button>
+                            <button type="button" onclick="deleteArchivedItem('${todo.id}')" class="p-2 rounded-xl transition ${todo.starred ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/15'}" title="${todo.starred ? '受星號保護不可刪除' : '將此封存項目移至垃圾桶'}">
+                                <i data-lucide="${todo.starred ? 'shield-check' : 'trash-2'}" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                lucide.createIcons();
+                return;
+            }
+
+            if (state.mainView === 'trash') {
+                if (trashCount === 0) {
+                    listEl.innerHTML = `
+                        <div class="rounded-2xl bg-slate-900/35 backdrop-blur-md border border-white/10 p-10 text-center text-slate-300">
+                            <div class="text-3xl mb-2">🗑️</div>
+                            <p class="text-sm font-semibold text-white">垃圾桶目前是空的</p>
+                            <p class="text-xs text-slate-400 mt-1">刪除未加星號的待辦事項會暫存於此（加星號事項受保護不會進入垃圾桶）</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                listEl.innerHTML = state.trashedTodos.map(todo => `
+                    <div class="rounded-2xl bg-slate-900/40 backdrop-blur-xl border border-rose-500/20 p-4 shadow-lg flex items-center justify-between gap-3.5">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300">
+                                        已刪除
+                                    </span>
+                                    <h3 class="text-base font-semibold break-words text-slate-300">
+                                        ${escapeHTML(todo.title)}
+                                    </h3>
+                                </div>
+                                ${todo.note ? `<p class="text-xs text-slate-400 break-words leading-relaxed mb-1">${escapeHTML(todo.note)}</p>` : ''}
+                                <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                                    <span>移入垃圾桶時間：${formatDateTime(todo.deletedAt)}</span>
+                                    ${todo.remindAt ? `<span>原定提醒：${formatDateTime(todo.remindAt)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onclick="restoreFromTrash('${todo.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/30 text-emerald-200 text-xs font-medium flex items-center gap-1 transition" title="還原回待辦清單">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                <span>還原</span>
+                            </button>
+                            <button type="button" onclick="permanentlyDeleteFromTrash('${todo.id}')" class="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 border border-rose-400/30 text-rose-200 text-xs font-medium flex items-center gap-1 transition" title="永久刪除">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                <span>永久刪除</span>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                lucide.createIcons();
+                return;
+            }
+
+            const filtered = state.todos.filter(t => {
+                if (state.subFilter === 'starred') return t.starred;
+                if (state.subFilter === 'normal') return !t.starred;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="rounded-2xl bg-slate-900/35 backdrop-blur-md border border-white/10 p-10 text-center text-slate-300">
+                        <i data-lucide="clipboard-check" class="w-10 h-10 mx-auto mb-2 text-slate-400 opacity-70"></i>
+                        <p class="text-sm font-medium">${state.subFilter === 'starred' ? '目前沒有加星號的重要待辦事項' : state.subFilter === 'normal' ? '目前沒有一般待辦事項' : '目前沒有待辦事項'}</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            listEl.innerHTML = filtered.map(todo => {
+                const hasReminder = Boolean(todo.remindAt);
+                const isOverdue = hasReminder && new Date(todo.remindAt).getTime() < Date.now();
+                
+                let reminderBadge = '';
+                if (!hasReminder) {
+                    reminderBadge = `<span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300"><i data-lucide="bell-off" class="w-3 h-3"></i>無提醒</span>`;
+                } else if (isOverdue) {
+                    reminderBadge = `<span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-200 border border-rose-400/30"><i data-lucide="bell-ring" class="w-3 h-3"></i>${formatDateTime(todo.remindAt)} (已到點)</span>`;
+                } else {
+                    reminderBadge = `<span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30"><i data-lucide="alarm-clock" class="w-3 h-3"></i>${formatDateTime(todo.remindAt)}</span>`;
+                }
+
+                return `
+                    <div class="group rounded-2xl bg-slate-900/45 hover:bg-slate-900/60 backdrop-blur-xl border ${todo.starred ? 'border-yellow-400/40' : 'border-white/15'} p-4 shadow-lg transition flex items-center justify-between gap-3.5">
+                        <div class="flex items-center gap-3.5 flex-1 min-w-0">
+                            <!-- 勾選完成按鈕 -->
+                            <button type="button" onclick="completeAndArchiveTodo('${todo.id}')" class="w-6 h-6 rounded-lg border-2 border-slate-400 hover:border-emerald-400 hover:bg-emerald-500/20 bg-white/5 flex items-center justify-center shrink-0 transition" title="勾選完成（將自動移入「📦 封存」並停止提醒）">
+                                <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 opacity-0 group-hover:opacity-60 transition"></i>
+                            </button>
+
+                            <!-- 星號按鈕 -->
+                            <button type="button" onclick="toggleStarTodo('${todo.id}', 'todos')" class="p-1.5 rounded-lg shrink-0 transition ${todo.starred ? 'text-yellow-400 bg-yellow-400/15' : 'text-slate-400 hover:text-yellow-300 hover:bg-white/10'}" title="${todo.starred ? '已加星號保護（不會被丟入垃圾桶）' : '加上星號保護'}">
+                                <i data-lucide="star" class="w-4 h-4 ${todo.starred ? 'fill-current' : ''}"></i>
+                            </button>
+
+                            <!-- 中間標題與備註 -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                                    <h3 class="text-base font-semibold break-words text-white">
+                                        ${escapeHTML(todo.title)}
+                                    </h3>
+                                    ${todo.starred ? `<span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-200 border border-yellow-400/30">⭐ 星號保護</span>` : ''}
+                                    ${reminderBadge}
+                                </div>
+                                ${todo.note ? `<p class="text-xs text-slate-300 break-words leading-relaxed">${escapeHTML(todo.note)}</p>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- 刪除按鈕 -->
+                        <button type="button" onclick="moveTodoToTrash('${todo.id}')" class="p-2 rounded-xl transition shrink-0 ${todo.starred ? 'text-amber-300/60 hover:bg-amber-500/10 cursor-not-allowed' : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/15'}" title="${todo.starred ? '⭐ 星號事項受保護，無法丟入垃圾桶' : '丟入垃圾桶'}">
+                            <i data-lucide="${todo.starred ? 'shield-check' : 'trash-2'}" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function updateBgmUI() {
+            const playIcon = document.getElementById('bgm-play-icon');
+            const badge = document.getElementById('bgm-status-badge');
+            const loopBtn = document.getElementById('bgm-loop-btn');
+            const headerIcon = document.getElementById('header-bgm-icon');
+            const headerLabel = document.getElementById('header-bgm-label');
+
+            if (soundEngine.isPlayingBgm) {
+                playIcon.setAttribute('data-lucide', 'pause');
+                badge.textContent = '播放中';
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-400/30';
+                if (headerIcon) headerIcon.setAttribute('data-lucide', 'pause');
+                if (headerLabel) headerLabel.textContent = '音樂播放中';
+            } else {
+                playIcon.setAttribute('data-lucide', 'play');
+                badge.textContent = '已暫停';
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300';
+                if (headerIcon) headerIcon.setAttribute('data-lucide', 'play');
+                if (headerLabel) headerLabel.textContent = '音樂已暫停';
+            }
+
+            if (state.settings.bgmLoop) {
+                loopBtn.classList.add('bg-indigo-500/20', 'border-indigo-400/40', 'text-indigo-300');
+                loopBtn.classList.remove('bg-white/5', 'border-white/10', 'text-slate-400');
+            } else {
+                loopBtn.classList.remove('bg-indigo-500/20', 'border-indigo-400/40', 'text-indigo-300');
+                loopBtn.classList.add('bg-white/5', 'border-white/10', 'text-slate-400');
+            }
+
+            lucide.createIcons();
+        }
+
+        function formatDateTime(isoString) {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            if (isNaN(d.getTime())) return '';
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const colors = {
+                success: 'bg-emerald-600/95 border-emerald-400/40 text-white',
+                error: 'bg-rose-600/95 border-rose-400/40 text-white',
+                warning: 'bg-amber-600/95 border-amber-400/40 text-white',
+                info: 'bg-slate-800/95 border-white/20 text-slate-100'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl border backdrop-blur-md shadow-xl text-xs sm:text-sm font-medium transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const clockEl = document.getElementById('live-clock');
+            const dateEl = document.getElementById('live-date');
+
+            if (clockEl) {
+                clockEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            }
+            if (dateEl) {
+                const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+                dateEl.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${days[now.getDay()]}`;
+            }
+        }
+
+        /**
+         * ==========================================
+         * 初始化與事件綁定
+         * ==========================================
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            renderPresetBackgrounds();
+            applyBackgroundSettings();
+            renderCurrentView();
+            updateClock();
+            lucide.createIcons();
+
+            document.getElementById('synth-preset-select').value = state.settings.synthPreset;
+            document.getElementById('bgm-url-input').value = state.settings.bgmUrl || '';
+            document.getElementById('bgm-volume').value = state.settings.bgmVolume;
+            document.getElementById('bgm-volume-label').textContent = `${Math.round(state.settings.bgmVolume * 100)}%`;
+            
+            const alarmSelect = document.getElementById('alarm-sound-select');
+            alarmSelect.value = state.settings.alarmSound;
+            document.getElementById('alarm-custom-panel').classList.toggle('hidden', state.settings.alarmSound !== 'custom');
+            
+            document.getElementById('alarm-volume').value = state.settings.alarmVolume;
+            document.getElementById('alarm-volume-label').textContent = `${Math.round(state.settings.alarmVolume * 100)}%`;
+
+            document.querySelectorAll('.bgm-tab-btn').forEach(btn => {
+                const isMatch = btn.dataset.bgmTab === state.settings.bgmMode;
+                btn.classList.toggle('bg-indigo-600', isMatch);
+                btn.classList.toggle('text-white', isMatch);
+                btn.classList.toggle('shadow', isMatch);
+                btn.classList.toggle('text-slate-300', !isMatch);
+            });
+            document.getElementById('bgm-panel-synth').classList.toggle('hidden', state.settings.bgmMode !== 'synth');
+            document.getElementById('bgm-panel-file').classList.toggle('hidden', state.settings.bgmMode !== 'file');
+            document.getElementById('bgm-panel-url').classList.toggle('hidden', state.settings.bgmMode !== 'url');
+            updateBgmUI();
+
+            setInterval(() => {
+                updateClock();
+                checkReminders();
+            }, 1000);
+
+            document.querySelectorAll('.main-view-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.main-view-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'text-white', 'shadow');
+                        b.classList.add('text-slate-300', 'hover:bg-white/10');
+                    });
+                    btn.classList.add('bg-indigo-600', 'text-white', 'shadow');
+                    btn.classList.remove('text-slate-300', 'hover:bg-white/10');
+
+                    state.mainView = btn.dataset.mainView;
+                    renderCurrentView();
+                });
+            });
+
+            document.querySelectorAll('.subfilter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.subfilter-btn').forEach(b => {
+                        b.classList.remove('bg-white/20', 'text-white', 'shadow');
+                        b.classList.add('text-slate-300');
+                    });
+                    btn.classList.add('bg-white/20', 'text-white', 'shadow');
+                    btn.classList.remove('text-slate-300');
+
+                    state.subFilter = btn.dataset.subfilter;
+                    renderCurrentView();
+                });
+            });
+
+            document.getElementById('clear-unstarred-archive-btn').addEventListener('click', () => {
+                const unstarredItems = state.archivedTodos.filter(t => !t.starred);
+                if (unstarredItems.length === 0) {
+                    showToast('目前沒有未加星號的封存紀錄可清除（星號事項受保護）', 'info');
+                    return;
+                }
+
+                const nowIso = new Date().toISOString();
+                unstarredItems.forEach(item => {
+                    item.deletedAt = nowIso;
+                    state.trashedTodos.unshift(item);
+                });
+
+                state.archivedTodos = state.archivedTodos.filter(t => t.starred);
+                saveAllTaskLists();
+                renderCurrentView();
+                showToast(`已將 ${unstarredItems.length} 筆未加星號的封存項目移至垃圾桶`, 'success');
+            });
+
+            document.getElementById('empty-trash-btn').addEventListener('click', () => {
+                if (state.trashedTodos.length === 0) return;
+                state.trashedTodos = [];
+                saveAllTaskLists();
+                renderCurrentView();
+                showToast('已清空垃圾桶', 'info');
+            });
+
+            const newTodoStarBtn = document.getElementById('new-todo-star-btn');
+            newTodoStarBtn.addEventListener('click', () => {
+                const isStarred = newTodoStarBtn.dataset.starred === 'true';
+                const nextState = !isStarred;
+                newTodoStarBtn.dataset.starred = String(nextState);
+                if (nextState) {
+                    newTodoStarBtn.classList.add('bg-yellow-500/25', 'border-yellow-400/50', 'text-yellow-300');
+                    newTodoStarBtn.classList.remove('bg-white/10', 'border-white/15', 'text-slate-300');
+                    newTodoStarBtn.querySelector('svg')?.classList.add('fill-current');
+                } else {
+                    newTodoStarBtn.classList.remove('bg-yellow-500/25', 'border-yellow-400/50', 'text-yellow-300');
+                    newTodoStarBtn.classList.add('bg-white/10', 'border-white/15', 'text-slate-300');
+                    newTodoStarBtn.querySelector('svg')?.classList.remove('fill-current');
+                }
+            });
+
+            document.getElementById('todo-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const titleInput = document.getElementById('todo-title');
+                const noteInput = document.getElementById('todo-note');
+                const dateInput = document.getElementById('todo-datetime');
+                const isStarred = newTodoStarBtn.dataset.starred === 'true';
+
+                if (!titleInput.value.trim()) return;
+                addTodo(titleInput.value, noteInput.value, dateInput.value, isStarred);
+
+                titleInput.value = '';
+                noteInput.value = '';
+                dateInput.value = '';
+                newTodoStarBtn.dataset.starred = 'false';
+                newTodoStarBtn.classList.remove('bg-yellow-500/25', 'border-yellow-400/50', 'text-yellow-300');
+                newTodoStarBtn.classList.add('bg-white/10', 'border-white/15', 'text-slate-300');
+                newTodoStarBtn.querySelector('svg')?.classList.remove('fill-current');
+            });
+
+            document.getElementById('clear-todo-time-btn').addEventListener('click', () => {
+                document.getElementById('todo-datetime').value = '';
+                showToast('已清除提醒時間', 'info');
+            });
+
+            document.querySelectorAll('.quick-time-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mins = parseInt(btn.dataset.quickMin, 10) || 5;
+                    const future = new Date(Date.now() + mins * 60 * 1000);
+                    const offset = future.getTimezoneOffset() * 60000;
+                    const localISOTime = new Date(future.getTime() - offset).toISOString().slice(0, 16);
+                    document.getElementById('todo-datetime').value = localISOTime;
+                    showToast(`已填入 ${mins >= 60 ? (mins / 60) + ' 小時' : mins + ' 分鐘'}後的提醒時間`, 'info');
+                });
+            });
+
+            document.getElementById('alarm-complete-btn').addEventListener('click', () => {
+                if (state.activeAlarmTodoId) {
+                    completeAndArchiveTodo(state.activeAlarmTodoId);
+                }
+            });
+
+            document.getElementById('alarm-snooze-btn').addEventListener('click', () => {
+                if (state.activeAlarmTodoId) {
+                    snoozeTodo(state.activeAlarmTodoId, 5);
+                }
+            });
+
+            const settingsBackdrop = document.getElementById('settings-modal-backdrop');
+            const settingsWindow = document.getElementById('settings-floating-window');
+            const openSettingsBtn = document.getElementById('open-settings-btn');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const dragHandle = document.getElementById('settings-drag-handle');
+            const resetPosBtn = document.getElementById('reset-window-pos-btn');
+
+            let dragOffset = { x: 0, y: 0 };
+            let isDraggingWindow = false;
+
+            function openSettingsModal() {
+                settingsBackdrop.classList.remove('hidden');
+                lucide.createIcons();
+            }
+
+            function closeSettingsModal() {
+                settingsBackdrop.classList.add('hidden');
+            }
+
+            function resetFloatingWindowPosition() {
+                settingsWindow.style.position = '';
+                settingsWindow.style.left = '';
+                settingsWindow.style.top = '';
+                settingsWindow.style.margin = '';
+                dragOffset = { x: 0, y: 0 };
+                resetPosBtn.classList.add('hidden');
+            }
+
+            openSettingsBtn.addEventListener('click', openSettingsModal);
+            closeSettingsBtn.addEventListener('click', closeSettingsModal);
+
+            settingsBackdrop.addEventListener('click', (e) => {
+                if (e.target === settingsBackdrop) closeSettingsModal();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !settingsBackdrop.classList.contains('hidden')) {
+                    closeSettingsModal();
+                }
+            });
+
+            dragHandle.addEventListener('mousedown', (e) => {
+                if (e.target.closest('button') || window.innerWidth < 640) return;
+                isDraggingWindow = true;
+                const rect = settingsWindow.getBoundingClientRect();
+                settingsWindow.style.position = 'fixed';
+                settingsWindow.style.left = `${rect.left}px`;
+                settingsWindow.style.top = `${rect.top}px`;
+                settingsWindow.style.margin = '0';
+                dragOffset.x = e.clientX - rect.left;
+                dragOffset.y = e.clientY - rect.top;
+                resetPosBtn.classList.remove('hidden');
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDraggingWindow) return;
+                const maxLeft = window.innerWidth - settingsWindow.offsetWidth;
+                const maxTop = window.innerHeight - settingsWindow.offsetHeight;
+                const nextLeft = Math.min(Math.max(8, e.clientX - dragOffset.x), Math.max(8, maxLeft - 8));
+                const nextTop = Math.min(Math.max(8, e.clientY - dragOffset.y), Math.max(8, maxTop - 8));
+                settingsWindow.style.left = `${nextLeft}px`;
+                settingsWindow.style.top = `${nextTop}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDraggingWindow = false;
+            });
+
+            resetPosBtn.addEventListener('click', resetFloatingWindowPosition);
+
+            document.getElementById('header-bgm-toggle').addEventListener('click', () => {
+                if (state.settings.bgmMode === 'url' && !soundEngine.audioElement.src && state.settings.bgmUrl) {
+                    soundEngine.audioElement.src = state.settings.bgmUrl;
+                }
+                soundEngine.toggleBgm();
+            });
+
+            document.querySelectorAll('.bgm-tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.bgm-tab-btn').forEach(b => {
+                        b.classList.remove('bg-indigo-600', 'text-white', 'shadow');
+                        b.classList.add('text-slate-300');
+                    });
+                    btn.classList.add('bg-indigo-600', 'text-white', 'shadow');
+                    btn.classList.remove('text-slate-300');
+
+                    const tab = btn.dataset.bgmTab;
+                    state.settings.bgmMode = tab;
+                    saveSettings();
+
+                    document.getElementById('bgm-panel-synth').classList.toggle('hidden', tab !== 'synth');
+                    document.getElementById('bgm-panel-file').classList.toggle('hidden', tab !== 'file');
+                    document.getElementById('bgm-panel-url').classList.toggle('hidden', tab !== 'url');
+
+                    if (soundEngine.isPlayingBgm) {
+                        soundEngine.startBgm();
+                    }
+                });
+            });
+
+            document.getElementById('synth-preset-select').addEventListener('change', (e) => {
+                state.settings.synthPreset = e.target.value;
+                saveSettings();
+                if (soundEngine.isPlayingBgm && state.settings.bgmMode === 'synth') {
+                    soundEngine.startBgm();
+                }
+            });
+
+            document.getElementById('bgm-file-input').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const url = URL.createObjectURL(file);
+                soundEngine.audioElement.src = url;
+                document.getElementById('bgm-file-name').textContent = file.name;
+                soundEngine.startBgm();
+                showToast(`正在播放：${file.name}`, 'success');
+            });
+
+            document.getElementById('bgm-url-apply').addEventListener('click', () => {
+                const url = document.getElementById('bgm-url-input').value.trim();
+                if (!url) return;
+                state.settings.bgmUrl = url;
+                saveSettings();
+                soundEngine.audioElement.src = url;
+                soundEngine.startBgm();
+            });
+
+            document.getElementById('bgm-play-btn').addEventListener('click', () => {
+                if (state.settings.bgmMode === 'url' && !soundEngine.audioElement.src && state.settings.bgmUrl) {
+                    soundEngine.audioElement.src = state.settings.bgmUrl;
+                }
+                soundEngine.toggleBgm();
+            });
+
+            document.getElementById('bgm-loop-btn').addEventListener('click', () => {
+                state.settings.bgmLoop = !state.settings.bgmLoop;
+                soundEngine.audioElement.loop = state.settings.bgmLoop;
+                saveSettings();
+                updateBgmUI();
+            });
+
+            document.getElementById('bgm-volume').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                document.getElementById('bgm-volume-label').textContent = `${Math.round(val * 100)}%`;
+                soundEngine.setBgmVolume(val);
+                saveSettings();
+            });
+
+            document.getElementById('alarm-sound-select').addEventListener('change', (e) => {
+                const val = e.target.value;
+                state.settings.alarmSound = val;
+                document.getElementById('alarm-custom-panel').classList.toggle('hidden', val !== 'custom');
+                saveSettings();
+                soundEngine.playAlarmOnce();
+            });
+
+            document.getElementById('alarm-file-input').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    state.settings.customAlarmDataUrl = event.target.result;
+                    document.getElementById('alarm-file-name').textContent = `已載入：${file.name}`;
+                    saveSettings();
+                    showToast('已成功設定自訂提醒音效', 'success');
+                    soundEngine.playAlarmOnce();
+                };
+                reader.readAsDataURL(file);
+            });
+
+            document.getElementById('alarm-volume').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state.settings.alarmVolume = val;
+                document.getElementById('alarm-volume-label').textContent = `${Math.round(val * 100)}%`;
+                saveSettings();
+            });
+
+            document.getElementById('test-alarm-btn').addEventListener('click', () => {
+                soundEngine.playAlarmOnce();
+            });
+
+            document.getElementById('bg-file-input').addEventListener('change', (e) => {
+                handleImageUpload(e.target.files[0]);
+            });
+
+            document.getElementById('bg-url-apply').addEventListener('click', () => {
+                const url = document.getElementById('bg-url-input').value.trim();
+                if (!url) return;
+                state.settings.bgType = 'image';
+                state.settings.bgValue = url;
+                saveSettings();
+                applyBackgroundSettings();
+                showToast('已套用網址背景圖片', 'success');
+            });
+
+            document.getElementById('bg-blur-slider').addEventListener('input', (e) => {
+                state.settings.bgBlur = parseInt(e.target.value, 10);
+                applyBackgroundSettings();
+                saveSettings();
+            });
+
+            document.getElementById('bg-dim-slider').addEventListener('input', (e) => {
+                state.settings.bgDim = parseInt(e.target.value, 10);
+                applyBackgroundSettings();
+                saveSettings();
+            });
+        });
+    </script>
+</body>
+</html>

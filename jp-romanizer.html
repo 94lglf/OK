@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日文漢字/假名轉換器 (Japanese Text Converter)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        indigo: { 50: '#f0f3ff', 100: '#e0e7ff', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81' },
+                        sakura: { 50: '#fff5f7', 100: '#ffe4e8', 400: '#f472b6', 500: '#ec4899', 600: '#db2777' },
+                        sumi: { 800: '#1e1e24', 900: '#121216' }
+                    },
+                    fontFamily: {
+                        jp: ['"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Noto Sans JP"', 'Meiryo', 'sans-serif'],
+                        serifJp: ['"Shippori Mincho"', '"Noto Serif JP"', '"Yu Mincho"', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" type="image/png" href="https://i.meee.com.tw/YvU0u3x.png">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://unpkg.com/wanakana"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+
+    <style>
+        html {
+        background-color: #121216; /* 載入瞬間的深色底，避免閃白 */
+    }
+
+    @keyframes blurReveal {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    body {
+        position: relative;
+        min-height: 100vh;
+        animation: blurReveal 0.8s ease-out forwards;
+    }
+
+    /* 將背景圖獨立為底層圖層，即可隨 body 同步淡入 */
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('https://i.pinimg.com/originals/24/41/da/2441dacfd5703b140a2816f82bd0f9c7.gif');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+        .glass-card {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .dark .glass-card {
+            background-color: rgba(30, 30, 36, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-header {
+            background-color: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .dark .glass-header {
+            background-color: rgba(26, 26, 32, 0.8);
+        }
+        ruby {
+            ruby-position: over;
+            margin: 0 0.15em;
+            display: inline-flex;
+            flex-direction: column-reverse;
+            vertical-align: bottom;
+            align-items: center;
+            line-height: 1.2;
+        }
+        rt {
+            font-size: 0.65em;
+            color: #db2777;
+            user-select: none;
+            font-family: 'Noto Sans JP', sans-serif;
+            font-weight: 500;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+        .dark rt { color: #f472b6; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
+    </style>
+</head>
+<body class="text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-jp transition-colors duration-200">
+
+<header class="border-b border-slate-200/60 dark:border-slate-800/60 glass-header sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-sakura-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                <span class="font-serifJp font-bold text-lg">和</span>
+            </div>
+            <div>
+                <h1 class="font-bold text-slate-900 dark:text-white text-base sm:text-lg leading-tight">
+                    日文漢字/假名轉換器 <span class="text-xs font-normal text-indigo-600 dark:text-sakura-400 font-mono ml-1">(Japanese Text Converter)</span>
+                </h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                    現代化日文羅馬字與振假名標註工具
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 sm:space-x-4">
+            <!-- 狀態顯示徽章：預設載入中 (琥珀黃色) -->
+            <div id="dictionary-status" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-amber-100/90 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                <i class="fa-solid font-bold text-xs fa-circle-notch fa-spin"></i>
+                <span class="font-medium hidden sm:inline">正在載入辭典...</span>
+                <span class="font-medium sm:hidden">載入中...</span>
+            </div>
+            <button id="theme-toggle" class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition">
+                <i class="fa-solid fa-moon text-lg dark:hidden"></i>
+                <i class="fa-solid fa-sun text-lg hidden dark:block text-amber-400"></i>
+            </button>
+        </div>
+    </div>
+</header>
+
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+        <!-- Options Panel -->
+        <div class="glass-card rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-3 sm:gap-6 text-xs sm:text-sm">
+                <div class="flex items-center space-x-2">
+                    <label class="font-medium text-slate-700 dark:text-slate-300">羅馬字拼音系統：</label>
+                    <select id="opt-romanization" class="bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 font-medium text-slate-800 dark:text-slate-100">
+                        <option value="hepburn">平式/黑本式 (Hepburn)</option>
+                        <option value="kunrei">訓令式/日本式 (Kunrei)</option>
+                    </select>
+                </div>
+                <label class="flex items-center space-x-2 cursor-pointer select-none">
+                    <input type="checkbox" id="opt-spaces" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 dark:bg-slate-700 border-slate-300">
+                    <span class="text-slate-700 dark:text-slate-300 font-medium">詞與詞之間加空格</span>
+                </label>
+                <div class="flex items-center space-x-2">
+                    <label class="font-medium text-slate-700 dark:text-slate-300">字母大小寫：</label>
+                    <select id="opt-case" class="bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">
+                        <option value="lowercase">小寫 (lowercase)</option>
+                        <option value="UPPERCASE">大寫 (UPPERCASE)</option>
+                        <option value="Capitalize">首字母大寫 (Title Case)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-slate-500 font-medium hidden md:inline">範例:</span>
+                <button onclick="loadSample(1)" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">古池や...</button>
+                <button onclick="loadSample(2)" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">吾輩は猫</button>
+                <button onclick="loadSample(3)" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">東京タワー</button>
+            </div>
+        </div>
+
+        <!-- Input Output Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div class="flex flex-col glass-card rounded-2xl shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/50 transition">
+                <div class="px-4 py-3 bg-slate-50/40 dark:bg-slate-800/40 border-b border-slate-200/60 dark:border-slate-800/60 flex justify-between items-center">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-pen-nib text-indigo-500"></i> 輸入日文文本 (Kanji / Kana)
+                    </span>
+                    <button id="btn-clear" class="text-xs text-slate-400 hover:text-rose-500 transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> 清除內容
+                    </button>
+                </div>
+                <textarea id="input-text" rows="8" class="w-full p-4 bg-transparent border-0 focus:ring-0 resize-none font-jp text-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 leading-relaxed overflow-y-hidden" placeholder="請在此輸入或貼上日文文章..."></textarea>
+                <div class="px-4 py-2 border-t border-slate-200/40 dark:border-slate-800/40 bg-slate-50/20 dark:bg-slate-800/20 flex justify-between items-center text-xs text-slate-500">
+                    <span id="char-count">0 個字元</span>
+                    <span class="italic">即時自動轉換中</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col h-full glass-card rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-4 py-3 bg-slate-50/40 dark:bg-slate-800/40 border-b border-slate-200/60 dark:border-slate-800/60 flex justify-between items-center">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-language text-sakura-500"></i> 羅馬字轉換結果 (Romaji)
+                    </span>
+                    <button id="btn-copy-romaji" class="text-xs text-indigo-600 dark:text-sakura-400 hover:underline flex items-center gap-1 font-medium">
+                        <i class="fa-regular fa-copy"></i> 複製羅馬字
+                    </button>
+                </div>
+                <div id="output-romaji" class="p-4 flex-1 font-mono text-base text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed select-text">
+                    <span class="text-slate-400 font-sans italic text-sm">轉換後的羅馬字將顯示於此...</span>
+                </div>
+                <div class="px-4 py-2 border-t border-slate-200/40 dark:border-slate-800/40 bg-slate-50/20 dark:bg-slate-800/20 flex justify-end space-x-2 text-xs">
+                    <button id="btn-copy-hiragana" class="text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-sakura-400 transition"><i class="fa-regular fa-copy mr-1"></i>複製平假名</button>
+                    <span class="text-slate-300 dark:text-slate-700">|</span>
+                    <button id="btn-copy-katakana" class="text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-sakura-400 transition"><i class="fa-regular fa-copy mr-1"></i>複製片假名</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Views Section -->
+        <div class="glass-card rounded-2xl shadow-sm overflow-hidden">
+            <div class="flex border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-800/40 px-2 pt-2">
+                <button id="tab-furigana" onclick="switchTab('furigana')" class="px-4 py-2.5 text-sm border-b-2 border-indigo-600 text-indigo-600 dark:border-sakura-400 dark:text-sakura-400 font-semibold flex items-center gap-2 transition-colors">
+                    <i class="fa-solid fa-font"></i> 振假名 (Furigana) 顯示
+                </button>
+                <button id="tab-breakdown" onclick="switchTab('breakdown')" class="px-4 py-2.5 text-sm border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 transition-colors">
+                    <i class="fa-solid fa-table-list"></i> 單字與詞性詳細分析表
+                </button>
+            </div>
+
+            <div id="view-furigana" class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">互動式 Ruby 視圖：漢字上方將自動標註對應的平假名讀音。</p>
+                    <button id="btn-copy-html" class="px-3 py-1.5 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition border border-slate-200/60 dark:border-slate-700">
+                        <i class="fa-solid fa-code text-indigo-500"></i> 複製 Furigana HTML (<ruby>&lt;ruby&gt;</ruby>)
+                    </button>
+                </div>
+                <div id="output-furigana" class="min-h-[120px] p-6 rounded-xl bg-white/50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800/80 text-xl font-serifJp leading-loose tracking-wide whitespace-pre-wrap">
+                    <span class="text-slate-400 font-sans text-sm italic">振假名標註結果將顯示於此...</span>
+                </div>
+            </div>
+
+            <div id="view-breakdown" class="p-6 hidden">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">形態素解析與詞性拆解。綠色標籤表示情境最符合的讀音。</p>
+                <div class="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead class="bg-slate-50/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-semibold border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="p-3">單詞 (Surface)</th>
+                                <th class="p-3">情境最佳讀音 (Reading)</th>
+                                <th class="p-3">羅馬字 (Romaji)</th>
+                                <th class="p-3">詞性 (POS)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="breakdown-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-700/60 text-slate-700 dark:text-slate-300">
+                            <tr><td colspan="4" class="p-4 text-center text-slate-400 italic">尚無詞性拆解資料。</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 z-50 pointer-events-none">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span id="toast-msg" class="text-sm font-medium">已成功複製至剪貼簿！</span>
+        </div>
+    </main>
+
+    <script>
+        let tokenizer = null;
+        let isDictLoaded = false;
+
+        const KANJI_ALTERNATIVES = {
+            "角": ["かど", "つの", "すみ", "かく"],
+            "生": ["なま", "い", "せい", "しょう", "き", "う"],
+            "日本": ["にほん", "にっぽん"],
+            "一日": ["ついたち", "いちにち"],
+            "大": ["だい", "おお", "たい"],
+            "行": ["い", "ゆ", "こう", "ぎょう"],
+            "風": ["かぜ", "ふう", "ふ"],
+            "下": ["した", "しも", "くだ"],
+            "上": ["うえ", "かみ", "あ"],
+            "日": ["ひ", "か", "にち"],
+            "本": ["ほん", "もと"],
+            "中": ["なか", "ちゅう"],
+            "人": ["ひと", "じん"],
+            "私": ["わたし", "わたくし"]
+        };
+
+        const SAMPLES = {
+            1: "古池や 蛙飛び込む 水の音\nふるいけや かわずとびこむ みずのおと",
+            2: "吾輩は猫である。名前はまだ無い。",
+            3: "東京タワーは、東京都港区芝公園にある総合電波塔である。"
+        };
+
+        const elInput = document.getElementById('input-text');
+        const elOutputRomaji = document.getElementById('output-romaji');
+        const elOutputFurigana = document.getElementById('output-furigana');
+        const elBreakdownBody = document.getElementById('breakdown-table-body');
+        const elOptRomanization = document.getElementById('opt-romanization');
+        const elOptSpaces = document.getElementById('opt-spaces');
+        const elOptCase = document.getElementById('opt-case');
+
+        function autoResizeTextarea() {
+            elInput.style.height = 'auto';
+            elInput.style.height = Math.max(160, elInput.scrollHeight) + 'px';
+        }
+
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        });
+
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+
+        function safeToRomaji(hiraText, system = 'hepburn') {
+            if (typeof wanakana !== 'undefined' && wanakana.toRomaji) {
+                try {
+                    const customMap = system === 'kunrei' ? {
+                        し: 'si', ち: 'ti', つ: 'tu', ふ: 'hu', じ: 'zi', ぢ: 'di', づ: 'du',
+                        しゃ: 'sya', しゅ: 'syu', しょ: 'syo',
+                        ちゃ: 'tya', ちゅ: 'tyu', ちょ: 'tyo',
+                        じゃ: 'zya', じゅ: 'zyu', じょ: 'zyo'
+                    } : {};
+                    return wanakana.toRomaji(hiraText, { customRomajiMapping: customMap, useObsoleteKana: false });
+                } catch(e) {}
+            }
+
+            const hepburnMap = {
+                あ:"a",い:"i",う:"u",え:"e",お:"o",か:"ka",き:"ki",く:"ku",け:"ke",こ:"ko",
+                さ:"sa",し:"shi",す:"su",せ:"se",そ:"so",た:"ta",ち:"chi",つ:"tsu",て:"te",と:"to",
+                な:"na",に:"ni",ぬ:"nu",ね:"ne",の:"no",は:"ha",ひ:"hi",ふ:"fu",へ:"he",ほ:"ho",
+                ま:"ma",み:"mi",む:"mu",め:"me",も:"mo",や:"ya",ゆ:"yu",よ:"yo",
+                ら:"ra",り:"ri",る:"ru",れ:"re",ろ:"ro",わ:"wa",を:"wo",ん:"n",
+                が:"ga",ぎ:"gi",ぐ:"gu",げ:"ge",ご:"go",ざ:"za",じ:"ji",ず:"zu",ぜ:"ze",ぞ:"zo",
+                だ:"da",ぢ:"ji",づ:"zu",で:"de",ど:"do",ば:"ba",び:"bi",ぶ:"bu",べ:"be",ぼ:"bo",
+                ぱ:"pa",ぴ:"pi",ぷ:"pu",ぺ:"pe",ぽ:"po",ゃ:"ya",ゅ:"yu",ょ:"yo",っ:"tsu",
+                しゃ:"sha",しゅ:"shu",しょ:"sho",ちゃ:"cha",ちゅ:"chu",ちょ:"cho",
+                じゃ:"ja",じゅ:"ju",じょ:"jo",きゃ:"kya",きゅ:"kyu",きょ:"kyo",
+                ぎゃ:"gya",ぎゅ:"gyu",ぎょ:"gyo",にゃ:"nya",にゅ:"nyu",にょ:"nyo",
+                ひゃ:"hya",ひゅ:"hyu",ひょ:"hyo",びゃ:"bya",びゅ:"byu",びょ:"byo",
+                ぴゃ:"pya",ぴゅ:"pyu",ぴょ:"pyo",みゃ:"mya",みゅ:"myu",みょ:"myo",
+                りゃ:"rya",りゅ:"ryu",りょ:"ryo"
+            };
+
+            const kunreiMap = {
+                ...hepburnMap,
+                し:"si",ち:"ti",つ:"tu",ふ:"hu",じ:"zi",ぢ:"di",づ:"du",
+                しゃ:"sya",しゅ:"syu",しょ:"syo",ちゃ:"tya",ちゅ:"tyu",ちょ:"tyo",
+                じゃ:"zya",じゅ:"zyu",じょ:"zyo"
+            };
+
+            const activeMap = system === 'kunrei' ? kunreiMap : hepburnMap;
+            let result = "";
+            let i = 0;
+            while (i < hiraText.length) {
+                if (i + 1 < hiraText.length) {
+                    let doubleChar = hiraText.substring(i, i + 2);
+                    if (activeMap[doubleChar]) {
+                        result += activeMap[doubleChar];
+                        i += 2;
+                        continue;
+                    }
+                }
+                let singleChar = hiraText[i];
+                if (singleChar === 'っ' && i + 1 < hiraText.length) {
+                    let nextChar = hiraText[i + 1];
+                    let nextRomaji = activeMap[nextChar] || nextChar;
+                    result += nextRomaji[0];
+                    i++;
+                    continue;
+                }
+                result += activeMap[singleChar] || singleChar;
+                i++;
+            }
+            return result;
+        }
+
+        function kataToHira(str) {
+            if (!str) return '';
+            return str.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        }
+
+        function fallbackTokenize(text) {
+            const result = [];
+            const regex = /([\u4e00-\u9faf]+)|([\u3040-\u309f\u30a0-\u30ff]+)|(\n)|([^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\n]+)/g;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                const surface = match[0];
+                if (surface === '\n') {
+                    result.push({ surface_form: '\n', reading: '\n', pos: '換行' });
+                    continue;
+                }
+                let reading = surface;
+                let pos = '未知';
+                if (match[1]) {
+                    pos = '名詞/漢字';
+                    if (KANJI_ALTERNATIVES[surface]) {
+                        reading = hiraToKata(KANJI_ALTERNATIVES[surface][0]);
+                    }
+                } else if (match[2]) {
+                    pos = '假名';
+                    reading = kataToHira(surface);
+                } else {
+                    pos = '標點/其他';
+                }
+                result.push({ surface_form: surface, reading: kataToHira(reading), pos: pos });
+            }
+            return result;
+        }
+
+        function processText() {
+            const rawText = elInput.value;
+            document.getElementById('char-count').textContent = `${rawText.length} 個字元`;
+            autoResizeTextarea();
+
+            if (!rawText.trim()) {
+                elOutputRomaji.innerHTML = `<span class="text-slate-400 font-sans italic text-sm">轉換後的羅馬字將顯示於此...</span>`;
+                elOutputFurigana.innerHTML = `<span class="text-slate-400 font-sans text-sm italic">振假名標註結果將顯示於此...</span>`;
+                elBreakdownBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic">尚無詞性拆解資料。</td></tr>`;
+                return;
+            }
+
+            const lines = rawText.split('\n');
+            let tokens = [];
+            lines.forEach((line, index) => {
+                if (line.trim() !== '') {
+                    let lineTokens = (isDictLoaded && tokenizer) ? tokenizer.tokenize(line) : fallbackTokenize(line);
+                    tokens.push(...lineTokens);
+                }
+                if (index < lines.length - 1) {
+                    tokens.push({ surface_form: '\n', reading: '\n', pos: '換行' });
+                }
+            });
+
+            renderRomaji(tokens);
+            renderFurigana(tokens);
+            renderBreakdown(tokens);
+        }
+
+        function renderRomaji(tokens) {
+            const isKunrei = elOptRomanization.value === 'kunrei';
+            const addSpaces = elOptSpaces.checked;
+            const letterCase = elOptCase.value;
+
+            let romajiLines = [[]];
+            tokens.forEach(t => {
+                if (t.surface_form === '\n') {
+                    romajiLines.push([]);
+                    return;
+                }
+                let textToConvert = t.reading ? kataToHira(t.reading) : t.surface_form;
+                let romaji = safeToRomaji(textToConvert, isKunrei ? 'kunrei' : 'hepburn');
+
+                if (letterCase === 'UPPERCASE') romaji = romaji.toUpperCase();
+                else if (letterCase === 'Capitalize') romaji = romaji.charAt(0).toUpperCase() + romaji.slice(1);
+
+                romajiLines[romajiLines.length - 1].push(romaji);
+            });
+
+            const separator = addSpaces ? ' ' : '';
+            let lines = romajiLines.map(parts => parts.join(separator).replace(/([。、！？])/g, '$1 '));
+            elOutputRomaji.textContent = lines.join('\n').trim();
+        }
+
+        function renderFurigana(tokens) {
+            let html = '';
+            tokens.forEach(t => {
+                if (t.surface_form === '\n') {
+                    html += '<br/>';
+                    return;
+                }
+                const hasKanji = /[\u4e00-\u9faf]/.test(t.surface_form);
+                const hiraReading = kataToHira(t.reading || t.surface_form);
+                if (hasKanji && t.reading && t.surface_form !== hiraReading) {
+                    html += `<ruby>${escapeHtml(t.surface_form)}<rt>${escapeHtml(hiraReading)}</rt></ruby>`;
+                } else {
+                    html += `<span>${escapeHtml(t.surface_form)}</span>`;
+                }
+            });
+            elOutputFurigana.innerHTML = html;
+        }
+
+        function renderBreakdown(tokens) {
+            const isKunrei = elOptRomanization.value === 'kunrei';
+            let rowsHtml = '';
+            tokens.forEach(t => {
+                if (t.surface_form.trim() === '') return;
+                const reading = kataToHira(t.reading || t.surface_form);
+                const romaji = safeToRomaji(reading, isKunrei ? 'kunrei' : 'hepburn');
+                rowsHtml += `
+                    <tr class="hover:bg-white/40 dark:hover:bg-slate-800/40 transition">
+                        <td class="p-3 font-semibold text-slate-900 dark:text-white">${escapeHtml(t.surface_form)}</td>
+                        <td class="p-3"><span class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs">${escapeHtml(reading)}</span></td>
+                        <td class="p-3 font-mono text-xs">${escapeHtml(romaji)}</td>
+                        <td class="p-3 text-xs text-slate-500">${escapeHtml(t.pos || '名詞')}</td>
+                    </tr>
+                `;
+            });
+            elBreakdownBody.innerHTML = rowsHtml || `<tr><td colspan="4" class="p-4 text-center text-slate-400">尚無資料</td></tr>`;
+        }
+
+        function switchTab(tabName) {
+            const tabFurigana = document.getElementById('tab-furigana');
+            const tabBreakdown = document.getElementById('tab-breakdown');
+            const viewFurigana = document.getElementById('view-furigana');
+            const viewBreakdown = document.getElementById('view-breakdown');
+
+            if (tabName === 'furigana') {
+                tabFurigana.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                tabFurigana.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+                
+                tabBreakdown.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                tabBreakdown.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+
+                viewFurigana.classList.remove('hidden');
+                viewBreakdown.classList.add('hidden');
+            } else {
+                tabBreakdown.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                tabBreakdown.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+
+                tabFurigana.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                tabFurigana.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+
+                viewBreakdown.classList.remove('hidden');
+                viewFurigana.classList.add('hidden');
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+        }
+
+        function loadSample(num) {
+            if (SAMPLES[num]) {
+                elInput.value = SAMPLES[num];
+                processText();
+                switchTab('furigana');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            elInput.value = SAMPLES[1];
+            processText();
+
+            // 嘗試非同步載入進階形態素辭典，成功後改為綠色「就緒」
+            if (typeof kuromoji !== 'undefined') {
+                try {
+                    kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, _tok) => {
+                        if (!err) {
+                            tokenizer = _tok;
+                            isDictLoaded = true;
+                            document.getElementById('dictionary-status').className = "flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300";
+                            document.getElementById('dictionary-status').innerHTML = '<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">辭典載入完成 (形態素解析中)</span>';
+                            processText();
+                        }
+                    });
+                } catch(e) {}
+            }
+
+            elInput.addEventListener('input', processText);
+            elOptRomanization.addEventListener('change', processText);
+            elOptSpaces.addEventListener('change', processText);
+            elOptCase.addEventListener('change', processText);
+
+            document.getElementById('btn-clear').addEventListener('click', () => { elInput.value = ''; processText(); elInput.focus(); });
+            document.getElementById('btn-copy-romaji').addEventListener('click', () => copyToClipboard(elOutputRomaji.textContent, "已複製羅馬字！"));
+            document.getElementById('btn-copy-hiragana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製平假名！"));
+            document.getElementById('btn-copy-katakana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製片假名！"));
+            document.getElementById('btn-copy-html').addEventListener('click', () => copyToClipboard(elOutputFurigana.innerHTML, "已複製 HTML Ruby！"));
+        });
+
+        function copyToClipboard(text, msg) {
+            const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); showToast(msg); } catch(e){}
+            document.body.removeChild(ta);
+        }
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            t.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500);
+        }
+    </script>
+</body>
+</html>
