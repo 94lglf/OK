@@ -574,8 +574,7 @@
 
                 if (typeof kuromoji !== 'undefined') {
                     try {
-                        kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, _tok) => {
-                            isDownloading = false;
+                        kuromoji.builder({ dicPath: "./dict/" }).build((err, _tok) => {                            isDownloading = false;
                             if (!err && _tok) {
                                 tokenizer = _tok;
                                 isDictLoaded = true;
