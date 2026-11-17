@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="dark" style="background-color: #121216;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日文漢字/假名轉換器 (Japanese Text Converter)</title>
+    <title>日文漢字/假名轉換器 - jp-romanizer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -22,6 +22,13 @@
                 }
             }
         }
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.backgroundColor = '#f8fafc';
+        } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.backgroundColor = '#121216';
+        }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="icon" type="image/png" href="https://i.meee.com.tw/YvU0u3x.png">
@@ -33,6 +40,11 @@
     <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
 
     <style>
+        html, body {
+            background-color: #121216;
+            margin: 0;
+            padding: 0;
+        }
         body {
             background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('https://i.pinimg.com/originals/24/41/da/2441dacfd5703b140a2816f82bd0f9c7.gif');
             background-size: cover;
@@ -40,6 +52,14 @@
             background-repeat: no-repeat;
             background-attachment: fixed;
             min-height: 100vh;
+        }
+        /* 純粹的淡入效果，無任何位移滑入 */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         .glass-card {
             background-color: rgba(255, 255, 255, 0.85);
@@ -83,7 +103,7 @@
         ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
     </style>
 </head>
-<body class="text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-jp transition-colors duration-200">
+<body class="text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-jp transition-colors duration-200 fade-in">
 
     <header class="border-b border-slate-200/60 dark:border-slate-800/60 glass-header sticky top-0 z-30">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -93,7 +113,7 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-slate-900 dark:text-white text-base sm:text-lg leading-tight">
-                        日文漢字/假名轉換器 <span class="text-xs font-normal text-indigo-600 dark:text-sakura-400 font-mono ml-1">(Japanese Text Converter)</span>
+                        日文漢字/假名轉換器 <span class="text-xs font-normal text-indigo-600 dark:text-sakura-400 font-mono ml-1">(jp-romanizer)</span>
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
                         現代化日文羅馬字與振假名標註工具
@@ -139,9 +159,9 @@
             </div>
             <div class="flex items-center space-x-2">
                 <span class="text-xs text-slate-500 font-medium hidden md:inline">範例:</span>
-                <button onclick="loadSample(1)" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">古池や...</button>
-                <button onclick="loadSample(2)" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">吾輩は猫</button>
-                <button onclick="loadSample(3)" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">東京タワー</button>
+                <button type="button" id="btn-sample-1" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">古池や...</button>
+                <button type="button" id="btn-sample-2" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">吾輩は猫</button>
+                <button type="button" id="btn-sample-3" class="px-2.5 py-1 text-xs rounded-lg bg-white/80 hover:bg-white dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/60">東京タワー</button>
             </div>
         </div>
 
@@ -233,7 +253,6 @@
     </main>
 
     <script>
-        // 全部包在 DOMContentLoaded 確保絕對安全，絕不會發生抓不到元素而導致癱瘓
         window.addEventListener('DOMContentLoaded', () => {
             let tokenizer = null;
             let isDictLoaded = false;
@@ -289,15 +308,12 @@
                 }
             }
 
-            // Theme toggle
             document.getElementById('theme-toggle').addEventListener('click', () => {
                 document.documentElement.classList.toggle('dark');
-                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                const isDark = document.documentElement.classList.contains('dark');
+                document.documentElement.style.backgroundColor = isDark ? '#121216' : '#f8fafc';
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
             });
-
-            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-            }
 
             function safeToRomaji(hiraText, system = 'hepburn') {
                 if (typeof wanakana !== 'undefined' && wanakana.toRomaji) {
@@ -492,8 +508,7 @@
                 elBreakdownBody.innerHTML = rowsHtml || `<tr><td colspan="4" class="p-4 text-center text-slate-400">尚無資料</td></tr>`;
             }
 
-            // Expose switchTab globally so onclick can call it
-            window.switchTab = function(tabName) {
+            function switchTab(tabName) {
                 const tabFurigana = document.getElementById('tab-furigana');
                 const tabBreakdown = document.getElementById('tab-breakdown');
                 const viewFurigana = document.getElementById('view-furigana');
@@ -518,30 +533,36 @@
                     viewBreakdown.classList.remove('hidden');
                     viewFurigana.classList.add('hidden');
                 }
-            };
+            }
+
+            window.switchTab = switchTab;
+            document.getElementById('tab-furigana').addEventListener('click', () => switchTab('furigana'));
+            document.getElementById('tab-breakdown').addEventListener('click', () => switchTab('breakdown'));
 
             function escapeHtml(str) {
                 return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
             }
 
-            window.loadSample = function(num) {
+            function loadSample(num) {
                 if (SAMPLES[num]) {
                     elInput.value = SAMPLES[num];
                     processText();
                     switchTab('furigana');
                 }
-            };
+            }
 
-            // 初始化載入範例
+            document.getElementById('btn-sample-1').addEventListener('click', () => loadSample(1));
+            document.getElementById('btn-sample-2').addEventListener('click', () => loadSample(2));
+            document.getElementById('btn-sample-3').addEventListener('click', () => loadSample(3));
+
             elInput.value = SAMPLES[1];
             processText();
 
-            // 4秒逾時保護
             const fallbackTimer = setTimeout(() => {
                 if (!isDictLoaded) {
-                    setReadyStatus('就緒 (快速解析模式)');
+                    setReadyStatus('就緒 (高速離線解析)');
                 }
-            }, 4000);
+            }, 3000);
 
             if (typeof kuromoji !== 'undefined') {
                 try {
@@ -550,22 +571,21 @@
                         if (!err && _tok) {
                             tokenizer = _tok;
                             isDictLoaded = true;
-                            setReadyStatus('辭典載入完成');
+                            setReadyStatus('辭典載入完成 (形態素解析中)');
                             processText();
                         } else {
-                            setReadyStatus('就緒 (快速解析模式)');
+                            setReadyStatus('就緒 (高速離線解析)');
                         }
                     });
                 } catch(e) {
                     clearTimeout(fallbackTimer);
-                    setReadyStatus('就緒 (快速解析模式)');
+                    setReadyStatus('就緒 (高速離線解析)');
                 }
             } else {
                 clearTimeout(fallbackTimer);
-                setReadyStatus('就緒 (離線解析模式)');
+                setReadyStatus('就緒 (高速離線解析)');
             }
 
-            // 事件監聽綁定
             elInput.addEventListener('input', processText);
             elOptRomanization.addEventListener('change', processText);
             elOptSpaces.addEventListener('change', processText);
@@ -584,9 +604,11 @@
             }
             function showToast(msg) {
                 const t = document.getElementById('toast');
-                document.getElementById('toast-msg').textContent = msg;
-                t.classList.remove('translate-y-20', 'opacity-0');
-                setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500);
+                if (t) {
+                    document.getElementById('toast-msg').textContent = msg;
+                    t.classList.remove('translate-y-20', 'opacity-0');
+                    setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500);
+                }
             }
         });
     </script>
