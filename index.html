@@ -14,9 +14,9 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         html {
-    zoom: 1.25; /* 將整個頁面等比例放大至 125% */
-            }
-       body {
+            zoom: 1.25; /* 將整個頁面等比例放大至 125% */
+        }
+        body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
             margin: 0;
             padding: 0;
@@ -25,17 +25,55 @@
             overflow-x: hidden;
         }
 
-        /* 動態深邃極光背景 */
-        .aurora-bg {
+        /* 背景圖層與遮罩系統 */
+        #bg-layer {
+            position: fixed;
+            inset: -24px; /* 預留邊距防止模糊邊緣白邊 */
+            z-index: -2;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: filter 0.2s ease, background-image 0.3s ease;
+        }
+
+        #bg-overlay {
             position: fixed;
             inset: 0;
             z-index: -1;
+            background-color: rgba(7, 11, 20, 0.45);
+            transition: background-color 0.2s ease;
+            pointer-events: none;
+        }
+
+        /* 預設動態極光背景 */
+        .preset-aurora {
             background: 
-                radial-gradient(circle at 15% 15%, rgba(79, 70, 229, 0.28) 0%, transparent 45%),
-                radial-gradient(circle at 85% 25%, rgba(16, 185, 129, 0.2) 0%, transparent 45%),
-                radial-gradient(circle at 50% 85%, rgba(139, 92, 246, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 15% 15%, rgba(79, 70, 229, 0.32) 0%, transparent 45%),
+                radial-gradient(circle at 85% 25%, rgba(16, 185, 129, 0.24) 0%, transparent 45%),
+                radial-gradient(circle at 50% 85%, rgba(139, 92, 246, 0.28) 0%, transparent 50%),
                 #070b14;
             animation: auroraShift 18s ease-in-out infinite alternate;
+        }
+
+        .preset-ocean {
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.35) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(45, 212, 191, 0.25) 0%, transparent 50%),
+                #06111e;
+        }
+
+        .preset-forest {
+            background: 
+                radial-gradient(circle at 25% 15%, rgba(16, 185, 129, 0.3) 0%, transparent 48%),
+                radial-gradient(circle at 75% 85%, rgba(5, 150, 105, 0.25) 0%, transparent 50%),
+                #06130e;
+        }
+
+        .preset-sunset {
+            background: 
+                radial-gradient(circle at 15% 20%, rgba(244, 63, 94, 0.3) 0%, transparent 48%),
+                radial-gradient(circle at 85% 75%, rgba(245, 158, 11, 0.25) 0%, transparent 50%),
+                #130812;
         }
 
         @keyframes auroraShift {
@@ -43,7 +81,7 @@
             100% { transform: scale(1.06) translate(-1%, 1%); }
         }
 
-        /* 漸進式淡入進場動畫 (Staggered Reveal) */
+        /* 漸進式淡入進場動畫 */
         @keyframes fadeSlideUp {
             from {
                 opacity: 0;
@@ -75,25 +113,17 @@
         }
 
         /* 自訂捲軸 */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.03);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 9999px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.35);
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
 
-    <!-- 極光背景層 -->
-    <div class="aurora-bg"></div>
+    <!-- 背景與遮罩層 -->
+    <div id="bg-layer" class="preset-aurora"></div>
+    <div id="bg-overlay"></div>
 
     <!-- 主容器 -->
     <div class="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col gap-8">
@@ -125,30 +155,20 @@
             </div>
         </header>
 
-        <!-- 2. 搜尋與分類篩選列 -->
+        <!-- 2. 精簡工具列：搜尋框 + 背景設定 + 新增工具 -->
         <section class="animate-enter flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4" style="animation-delay: 0.15s;">
-            <!-- 分類標籤按鈕 -->
-            <div id="category-tabs" class="flex flex-wrap items-center gap-2">
-                <button type="button" data-category="all" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 transition">
-                    全部工具
-                </button>
-                <button type="button" data-category="productivity" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition">
-                    ⚡ 專注與效率
-                </button>
-                <button type="button" data-category="language" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition">
-                    🈳 語言與學習
-                </button>
-                <button type="button" data-category="custom" class="cat-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition">
-                    ✨ 自訂工具
-                </button>
+            <!-- 搜尋框 -->
+            <div class="relative flex-1 max-w-md">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input id="search-input" type="text" placeholder="搜尋工具名稱或說明..." class="w-full rounded-xl bg-slate-900/60 backdrop-blur-md border border-white/15 pl-10 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
             </div>
 
-            <!-- 搜尋框與新增工具按鈕 -->
-            <div class="flex items-center gap-2.5">
-                <div class="relative flex-1 sm:w-64">
-                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                    <input id="search-input" type="text" placeholder="搜尋工具名稱或標籤..." class="w-full rounded-xl bg-slate-900/60 backdrop-blur-md border border-white/15 pl-10 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
-                </div>
+            <!-- 右側功能按鈕群 -->
+            <div class="flex items-center gap-2.5 self-end sm:self-auto">
+                <button id="open-bg-modal-btn" type="button" class="px-3.5 py-2 rounded-xl bg-slate-900/70 hover:bg-slate-800 border border-white/15 text-xs sm:text-sm font-medium text-slate-200 shadow-lg flex items-center gap-1.5 transition active:scale-95" title="調整主頁背景與遮罩">
+                    <i data-lucide="image" class="w-4 h-4 text-indigo-400"></i>
+                    <span>背景設定</span>
+                </button>
                 <button id="open-add-modal-btn" type="button" class="px-3.5 py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 border border-emerald-400/30 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition active:scale-95 shrink-0" title="新增自訂網頁工具">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     <span>新增工具</span>
@@ -164,19 +184,21 @@
     </div>
 
     <!-- 頁尾資訊 -->
-    <footer class="w-full py-5 border-t border-white/10 text-center text-xs text-slate-500 flex items-center justify-center gap-4">
+    <footer class="w-full py-5 border-t border-white/10 text-center text-xs text-slate-400 flex items-center justify-center gap-4">
         <span>Nexus Hub 個人工具導航首頁</span>
         <span>•</span>
-        <button id="reset-tools-btn" type="button" class="hover:text-slate-300 underline underline-offset-2 transition">重設為預設工具</button>
+        <button id="reset-tools-btn" type="button" class="hover:text-white underline underline-offset-2 transition">重設為預設工具</button>
     </footer>
 
-    <!-- 新增 / 編輯自訂工具彈出視窗 (Modal) -->
-    <div id="tool-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-        <div class="w-full max-w-md rounded-3xl bg-slate-900/95 border border-white/20 p-6 shadow-2xl space-y-5">
+    <!-- ========================================== -->
+    <!-- Modal 1：新增 / 編輯工具卡片               -->
+    <!-- ========================================== -->
+    <div id="tool-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div class="w-full max-w-md rounded-3xl bg-slate-900/95 border border-white/20 p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-white/10 pb-3">
                 <h3 id="modal-title" class="text-lg font-bold text-white flex items-center gap-2">
                     <i data-lucide="folder-plus" class="w-5 h-5 text-emerald-400"></i>
-                    <span>新增自訂工具卡片</span>
+                    <span>新增工具卡片</span>
                 </h3>
                 <button id="close-modal-btn" type="button" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition">
                     <i data-lucide="x" class="w-4 h-4"></i>
@@ -186,52 +208,78 @@
             <form id="tool-form" class="space-y-4">
                 <input type="hidden" id="tool-id-input">
                 
+                <!-- 即時預覽圖示方塊 -->
+                <div class="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/10">
+                    <div id="icon-preview-box" class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 overflow-hidden text-xl font-bold" style="background: linear-gradient(135deg, #6366f1, #9333ea);">
+                        <i data-lucide="sparkles" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-xs text-slate-400 space-y-0.5">
+                        <div class="text-slate-200 font-medium">卡片圖示即時預覽</div>
+                        <div>可自由搭配內建圖示、Emoji 或圖片網址</div>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">工具名稱 <span class="text-rose-400">*</span></label>
-                    <input id="tool-name-input" type="text" required placeholder="例如：專注時光 Workspace" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input id="tool-name-input" type="text" required placeholder="例如：隨記事項 Todo-List" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">工具網址或檔案路徑 <span class="text-rose-400">*</span></label>
-                    <input id="tool-url-input" type="text" required placeholder="例如：./todo-list.html 或 https://..." class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input id="tool-url-input" type="text" required placeholder="例如：./todo.html 或 https://..." class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">所屬分類</label>
-                        <select id="tool-cat-input" class="w-full rounded-xl bg-slate-800 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="productivity">⚡ 專注與效率</option>
-                            <option value="language">🈳 語言與學習</option>
-                            <option value="custom">✨ 自訂工具</option>
-                        </select>
+                <!-- 圖示類型切換：內建圖示 vs 自訂圖案/Emoji/圖片 -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-medium text-slate-300">圖示樣式</label>
+                    <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-800/80 border border-white/10">
+                        <button type="button" id="tab-icon-preset" class="py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition">內建圖示</button>
+                        <button type="button" id="tab-icon-custom" class="py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition">自訂 Emoji / 圖片</button>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">標籤 (Tag)</label>
-                        <input id="tool-tag-input" type="text" placeholder="例如：主力工具" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">圖示樣式</label>
+                    <!-- 內建圖示選單 -->
+                    <div id="icon-preset-group">
                         <select id="tool-icon-input" class="w-full rounded-xl bg-slate-800 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="sparkles">✨ 星芒 (Sparkles)</option>
-                            <option value="languages">🈳 語言 (Languages)</option>
-                            <option value="globe">🌐 網頁 (Globe)</option>
-                            <option value="wrench">🔧 工具 (Wrench)</option>
+                            <option value="check-square">☑️ 待辦清單 (Check Square)</option>
+                            <option value="languages">🈳 語言解析 (Languages)</option>
+                            <option value="globe">🌐 網頁連結 (Globe)</option>
+                            <option value="wrench">🔧 實用工具 (Wrench)</option>
                             <option value="code-2">💻 程式碼 (Code)</option>
-                            <option value="bookmark">🔖 書籤 (Bookmark)</option>
+                            <option value="bookmark">🔖 書籤收藏 (Bookmark)</option>
+                            <option value="music">🎵 音訊媒體 (Music)</option>
+                            <option value="cpu">⚡ 系統效能 (CPU)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">強調漸層色</label>
-                        <select id="tool-color-input" class="w-full rounded-xl bg-slate-800 border border-white/15 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="from-indigo-500 to-purple-600">靛藍紫韻</option>
-                            <option value="from-emerald-500 to-teal-600">翡翠青綠</option>
-                            <option value="from-sky-500 to-blue-600">晴空蔚藍</option>
-                            <option value="from-rose-500 to-orange-500">暮光暖橘</option>
-                            <option value="from-amber-500 to-yellow-600">琥珀流金</option>
-                        </select>
+
+                    <!-- 自訂圖案輸入框 -->
+                    <div id="icon-custom-group" class="hidden">
+                        <input id="tool-custom-icon-input" type="text" placeholder="輸入 Emoji (如 📝) 或貼上圖片網址 (https://...)" class="w-full rounded-xl bg-white/10 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- 漸層色選色器（預設色票 + 雙色自訂） -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-medium text-slate-300">背景漸層配色</label>
+                    <!-- 快速預設色票 -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" class="color-preset w-7 h-7 rounded-full border-2 border-white/40 hover:scale-110 transition" data-c1="#6366f1" data-c2="#9333ea" style="background: linear-gradient(135deg, #6366f1, #9333ea);" title="靛藍紫韻"></button>
+                        <button type="button" class="color-preset w-7 h-7 rounded-full border-2 border-white/20 hover:scale-110 transition" data-c1="#10b981" data-c2="#0d9488" style="background: linear-gradient(135deg, #10b981, #0d9488);" title="翡翠青綠"></button>
+                        <button type="button" class="color-preset w-7 h-7 rounded-full border-2 border-white/20 hover:scale-110 transition" data-c1="#0ea5e9" data-c2="#2563eb" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);" title="晴空蔚藍"></button>
+                        <button type="button" class="color-preset w-7 h-7 rounded-full border-2 border-white/20 hover:scale-110 transition" data-c1="#f43f5e" data-c2="#f97316" style="background: linear-gradient(135deg, #f43f5e, #f97316);" title="暮光暖橘"></button>
+                        <button type="button" class="color-preset w-7 h-7 rounded-full border-2 border-white/20 hover:scale-110 transition" data-c1="#f59e0b" data-c2="#ca8a04" style="background: linear-gradient(135deg, #f59e0b, #ca8a04);" title="琥珀流金"></button>
+                        <button type="button" class="color-preset w-7 h-7 rounded-full border-2 border-white/20 hover:scale-110 transition" data-c1="#334155" data-c2="#0f172a" style="background: linear-gradient(135deg, #334155, #0f172a);" title="極簡曜石黑"></button>
+                    </div>
+                    <!-- 自訂雙色調色盤 -->
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <label class="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 cursor-pointer">
+                            <span>起始色</span>
+                            <input type="color" id="tool-color1-input" value="#6366f1" class="w-6 h-6 rounded bg-transparent border-0 cursor-pointer">
+                        </label>
+                        <label class="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 cursor-pointer">
+                            <span>結束色</span>
+                            <input type="color" id="tool-color2-input" value="#9333ea" class="w-6 h-6 rounded bg-transparent border-0 cursor-pointer">
+                        </label>
                     </div>
                 </div>
 
@@ -248,46 +296,138 @@
         </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- Modal 2：背景與遮罩視覺設定                -->
+    <!-- ========================================== -->
+    <div id="bg-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div class="w-full max-w-md rounded-3xl bg-slate-900/95 border border-white/20 p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="image" class="w-5 h-5 text-indigo-400"></i>
+                    <span>主頁背景與遮罩設定</span>
+                </h3>
+                <button id="close-bg-modal-btn" type="button" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- 預設背景選擇 -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-medium text-slate-300">預設主題背景</label>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <button type="button" class="bg-preset-btn p-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-left flex items-center gap-2.5 transition" data-preset="preset-aurora">
+                            <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-emerald-400 shrink-0"></span>
+                            <span class="text-xs font-medium text-white">極光動態（預設）</span>
+                        </button>
+                        <button type="button" class="bg-preset-btn p-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-left flex items-center gap-2.5 transition" data-preset="preset-ocean">
+                            <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-sky-500 to-teal-400 shrink-0"></span>
+                            <span class="text-xs font-medium text-white">靜謐深海藍</span>
+                        </button>
+                        <button type="button" class="bg-preset-btn p-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-left flex items-center gap-2.5 transition" data-preset="preset-forest">
+                            <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 shrink-0"></span>
+                            <span class="text-xs font-medium text-white">暗夜森林綠</span>
+                        </button>
+                        <button type="button" class="bg-preset-btn p-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-left flex items-center gap-2.5 transition" data-preset="preset-sunset">
+                            <span class="w-5 h-5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 shrink-0"></span>
+                            <span class="text-xs font-medium text-white">暮光微醺紫</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 自定義圖片背景 -->
+                <div class="space-y-2 pt-1 border-t border-white/10">
+                    <label class="block text-xs font-medium text-slate-300">自定義背景圖片（網址或本機上傳）</label>
+                    <div class="flex gap-2">
+                        <input id="custom-bg-url-input" type="text" placeholder="貼上圖片 URL (https://...)" class="flex-1 rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" id="apply-bg-url-btn" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shrink-0 transition">套用</button>
+                    </div>
+                    <label class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-dashed border-white/25 hover:border-indigo-400 bg-white/5 hover:bg-white/10 text-xs text-slate-300 cursor-pointer transition">
+                        <i data-lucide="upload" class="w-4 h-4 text-indigo-400"></i>
+                        <span>從電腦選擇圖片檔案</span>
+                        <input type="file" id="custom-bg-file-input" accept="image/*" class="hidden">
+                    </label>
+                </div>
+
+                <!-- 模糊度滑桿 -->
+                <div class="space-y-1.5 pt-1 border-t border-white/10">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300 font-medium">背景模糊度 (Blur)</span>
+                        <span id="blur-val-text" class="text-indigo-300 font-mono">0px</span>
+                    </div>
+                    <input id="bg-blur-slider" type="range" min="0" max="24" step="1" value="0" class="w-full accent-indigo-500 cursor-pointer">
+                </div>
+
+                <!-- 遮罩暗度滑桿 -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300 font-medium">遮罩暗度 (Darkness)</span>
+                        <span id="darkness-val-text" class="text-indigo-300 font-mono">45%</span>
+                    </div>
+                    <input id="bg-darkness-slider" type="range" min="0" max="90" step="5" value="45" class="w-full accent-indigo-500 cursor-pointer">
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button type="button" id="done-bg-modal-btn" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition">完成設定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 全域提示訊息 Toast -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
-        const STORAGE_KEY = 'nexus_hub_tools_v2';
+        const TOOLS_STORAGE_KEY = 'nexus_hub_tools_v3';
+        const BG_STORAGE_KEY = 'nexus_hub_bg_v1';
 
-        // 精簡預設工具清單：僅保留「專注時光」與「日文轉換」兩張核心卡片
+        // 精簡預設工具清單（移除分類與標籤）
         const DEFAULT_TOOLS = [
             {
                 id: 'tool-todo-list',
-                name: '專注時光 Workspace',
+                name: '隨記事項 Todo-List',
                 desc: '自訂背景、環境白噪音與智慧聲音提醒待辦清單。',
-                url: './todo-list.html',
-                category: 'productivity',
-                tag: '專注待辦',
+                url: './todo.html',
+                iconType: 'preset',
                 icon: 'sparkles',
-                color: 'from-indigo-500 to-purple-600'
+                customIcon: '',
+                color1: '#6366f1',
+                color2: '#9333ea'
             },
             {
                 id: 'tool-jp-romanizer',
                 name: '日文羅馬拼音與解析工具',
                 desc: '支援假名標註（Ruby Text）、多讀音切換與詞性解析。',
                 url: './jp-romanizer.html',
-                category: 'language',
-                tag: '日文解析',
+                iconType: 'preset',
                 icon: 'languages',
-                color: 'from-emerald-500 to-teal-600'
+                customIcon: '',
+                color1: '#10b981',
+                color2: '#0d9488'
             }
         ];
 
-        let state = {
-            tools: [],
-            activeCategory: 'all',
-            searchQuery: ''
+        const DEFAULT_BG = {
+            mode: 'preset', // 'preset' | 'custom'
+            preset: 'preset-aurora',
+            customUrl: '',
+            blur: 0,
+            darkness: 45
         };
 
-        // 載入完整工具列表（允許對所有卡片進行編輯或刪除）
+        let state = {
+            tools: [],
+            searchQuery: '',
+            iconMode: 'preset',
+            bg: { ...DEFAULT_BG }
+        };
+
+        // ==========================================
+        // 1. 工具資料存取與渲染
+        // ==========================================
         function loadTools() {
             try {
-                const saved = localStorage.getItem(STORAGE_KEY);
+                const saved = localStorage.getItem(TOOLS_STORAGE_KEY);
                 if (saved) {
                     state.tools = JSON.parse(saved);
                 } else {
@@ -299,27 +439,34 @@
             }
         }
 
-        // 儲存所有工具設定至 LocalStorage
         function saveTools() {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tools));
+                localStorage.setItem(TOOLS_STORAGE_KEY, JSON.stringify(state.tools));
             } catch (e) {
                 showToast('儲存失敗，請檢查瀏覽器快取設定');
             }
         }
 
-        // 渲染工具卡片網格（帶有漸進式淡入動畫）
+        // 產生卡片圖示內部 HTML（支援內建圖示、Emoji 文字、圖片網址）
+        function renderIconInner(tool) {
+            if (tool.iconType === 'custom' && tool.customIcon) {
+                const val = tool.customIcon.trim();
+                if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image')) {
+                    return `<img src="${escapeHTML(val)}" alt="icon" class="w-full h-full object-cover">`;
+                }
+                return `<span class="text-2xl leading-none select-none">${escapeHTML(val)}</span>`;
+            }
+            return `<i data-lucide="${escapeHTML(tool.icon || 'sparkles')}" class="w-6 h-6"></i>`;
+        }
+
         function renderTools() {
             const grid = document.getElementById('tools-grid');
             const query = state.searchQuery.toLowerCase().trim();
 
             const filtered = state.tools.filter(tool => {
-                const matchCat = state.activeCategory === 'all' || tool.category === state.activeCategory;
-                const matchQuery = !query || 
+                return !query || 
                     tool.name.toLowerCase().includes(query) || 
-                    (tool.desc && tool.desc.toLowerCase().includes(query)) || 
-                    (tool.tag && tool.tag.toLowerCase().includes(query));
-                return matchCat && matchQuery;
+                    (tool.desc && tool.desc.toLowerCase().includes(query));
             });
 
             if (filtered.length === 0) {
@@ -338,26 +485,25 @@
 
             grid.innerHTML = filtered.map((tool, index) => {
                 const delay = Math.min(0.06 * index, 0.45);
+                const c1 = tool.color1 || '#6366f1';
+                const c2 = tool.color2 || '#9333ea';
 
                 return `
                     <div class="tool-card animate-enter group relative rounded-3xl bg-slate-900/55 hover:bg-slate-900/80 backdrop-blur-xl border border-white/15 hover:border-indigo-400/50 p-6 flex flex-col justify-between gap-5" style="animation-delay: ${delay}s;">
                         
-                        <!-- 卡片上半部：圖示、標籤與編輯/刪除操作 -->
+                        <!-- 卡片上半部：圖示與編輯/刪除操作 -->
                         <div>
                             <div class="flex items-start justify-between gap-3 mb-4">
-                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br ${tool.color || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-white shadow-lg shrink-0">
-                                    <i data-lucide="${tool.icon || 'sparkles'}" class="w-6 h-6"></i>
+                                <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 overflow-hidden" style="background: linear-gradient(135deg, ${c1}, ${c2});">
+                                    ${renderIconInner(tool)}
                                 </div>
 
-                                <div class="flex items-center gap-1.5">
-                                    <span class="text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/10 text-slate-300 border border-white/10">
-                                        ${escapeHTML(tool.tag || '工具')}
-                                    </span>
-                                    <button type="button" onclick="openEditModal('${tool.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/15 transition" title="編輯工具設定">
-                                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                <div class="flex items-center gap-1">
+                                    <button type="button" onclick="openEditModal('${tool.id}')" class="p-2 rounded-xl text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/15 transition" title="編輯工具設定">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
                                     </button>
-                                    <button type="button" onclick="deleteTool('${tool.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition" title="刪除此工具">
-                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                    <button type="button" onclick="deleteTool('${tool.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 transition" title="刪除此工具">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
                                     </button>
                                 </div>
                             </div>
@@ -372,7 +518,7 @@
 
                         <!-- 卡片下半部：路徑顯示與開啟連結按鈕 -->
                         <div class="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
-                            <span class="text-[11px] font-mono text-slate-500 truncate">
+                            <span class="text-[11px] font-mono text-slate-400 truncate">
                                 ${escapeHTML(tool.url)}
                             </span>
                             <a href="${escapeHTML(tool.url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 group-hover:bg-indigo-600 text-xs font-semibold text-white transition shrink-0">
@@ -387,7 +533,52 @@
             lucide.createIcons();
         }
 
-        // 開啟編輯視窗並填入現有資料
+        // ==========================================
+        // 2. 圖示與配色即時預覽控制
+        // ==========================================
+        function setIconMode(mode) {
+            state.iconMode = mode;
+            const presetTab = document.getElementById('tab-icon-preset');
+            const customTab = document.getElementById('tab-icon-custom');
+            const presetGroup = document.getElementById('icon-preset-group');
+            const customGroup = document.getElementById('icon-custom-group');
+
+            if (mode === 'preset') {
+                presetTab.className = 'py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition';
+                customTab.className = 'py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition';
+                presetGroup.classList.remove('hidden');
+                customGroup.classList.add('hidden');
+            } else {
+                customTab.className = 'py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition';
+                presetTab.className = 'py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition';
+                customGroup.classList.remove('hidden');
+                presetGroup.classList.add('hidden');
+            }
+            updateIconPreview();
+        }
+
+        function updateIconPreview() {
+            const box = document.getElementById('icon-preview-box');
+            const c1 = document.getElementById('tool-color1-input').value;
+            const c2 = document.getElementById('tool-color2-input').value;
+            box.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+
+            if (state.iconMode === 'custom') {
+                const val = document.getElementById('tool-custom-icon-input').value.trim();
+                if (val) {
+                    if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image')) {
+                        box.innerHTML = `<img src="${escapeHTML(val)}" alt="preview" class="w-full h-full object-cover">`;
+                    } else {
+                        box.innerHTML = `<span class="text-2xl leading-none">${escapeHTML(val)}</span>`;
+                    }
+                    return;
+                }
+            }
+            const iconName = document.getElementById('tool-icon-input').value || 'sparkles';
+            box.innerHTML = `<i data-lucide="${iconName}" class="w-6 h-6"></i>`;
+            lucide.createIcons();
+        }
+
         function openEditModal(id) {
             const tool = state.tools.find(t => t.id === id);
             if (!tool) return;
@@ -399,11 +590,13 @@
             document.getElementById('tool-id-input').value = tool.id;
             document.getElementById('tool-name-input').value = tool.name;
             document.getElementById('tool-url-input').value = tool.url;
-            document.getElementById('tool-cat-input').value = tool.category || 'custom';
-            document.getElementById('tool-tag-input').value = tool.tag || '';
             document.getElementById('tool-icon-input').value = tool.icon || 'sparkles';
-            document.getElementById('tool-color-input').value = tool.color || 'from-indigo-500 to-purple-600';
+            document.getElementById('tool-custom-icon-input').value = tool.customIcon || '';
+            document.getElementById('tool-color1-input').value = tool.color1 || '#6366f1';
+            document.getElementById('tool-color2-input').value = tool.color2 || '#9333ea';
             document.getElementById('tool-desc-input').value = tool.desc || '';
+
+            setIconMode(tool.iconType || 'preset');
 
             const modal = document.getElementById('tool-modal');
             modal.classList.remove('hidden');
@@ -411,7 +604,6 @@
             lucide.createIcons();
         }
 
-        // 刪除工具卡片
         function deleteTool(id) {
             const target = state.tools.find(t => t.id === id);
             if (!target) return;
@@ -422,7 +614,60 @@
             showToast(`已移除「${target.name}」`);
         }
 
-        // 更新即時時鐘與時段問候語
+        // ==========================================
+        // 3. 背景設定與視覺套用
+        // ==========================================
+        function loadBgSettings() {
+            try {
+                const saved = localStorage.getItem(BG_STORAGE_KEY);
+                if (saved) {
+                    state.bg = { ...DEFAULT_BG, ...JSON.parse(saved) };
+                }
+            } catch (e) {
+                state.bg = { ...DEFAULT_BG };
+            }
+            applyBgSettings();
+        }
+
+        function saveBgSettings() {
+            try {
+                localStorage.setItem(BG_STORAGE_KEY, JSON.stringify(state.bg));
+            } catch (e) {
+                showToast('圖片檔案過大，無法儲存至本地快取，建議改用圖片網址');
+            }
+        }
+
+        function applyBgSettings() {
+            const bgLayer = document.getElementById('bg-layer');
+            const bgOverlay = document.getElementById('bg-overlay');
+
+            // 清除舊的 preset class
+            bgLayer.classList.remove('preset-aurora', 'preset-ocean', 'preset-forest', 'preset-sunset');
+
+            if (state.bg.mode === 'custom' && state.bg.customUrl) {
+                bgLayer.style.backgroundImage = `url("${state.bg.customUrl}")`;
+            } else {
+                bgLayer.style.backgroundImage = '';
+                bgLayer.classList.add(state.bg.preset || 'preset-aurora');
+            }
+
+            // 套用模糊度與遮罩暗度
+            bgLayer.style.filter = `blur(${state.bg.blur}px)`;
+            bgOverlay.style.backgroundColor = `rgba(7, 11, 20, ${state.bg.darkness / 100})`;
+
+            // 同步更新設定面板 UI
+            document.getElementById('bg-blur-slider').value = state.bg.blur;
+            document.getElementById('blur-val-text').textContent = `${state.bg.blur}px`;
+            document.getElementById('bg-darkness-slider').value = state.bg.darkness;
+            document.getElementById('darkness-val-text').textContent = `${state.bg.darkness}%`;
+            if (state.bg.mode === 'custom' && !state.bg.customUrl.startsWith('data:')) {
+                document.getElementById('custom-bg-url-input').value = state.bg.customUrl;
+            }
+        }
+
+        // ==========================================
+        // 4. 時鐘、Toast 與輔助函式
+        // ==========================================
         function updateDateTime() {
             const now = new Date();
             const pad = n => String(n).padStart(2, '0');
@@ -441,7 +686,6 @@
             document.getElementById('greeting-text').textContent = greeting;
         }
 
-        // Toast 提示框
         function showToast(msg) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -468,27 +712,15 @@
                       .replace(/'/g, '&#039;');
         }
 
-        // 初始化綁定
+        // ==========================================
+        // 5. 事件綁定初始化
+        // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
             loadTools();
+            loadBgSettings();
             renderTools();
             updateDateTime();
             setInterval(updateDateTime, 1000);
-
-            // 分類切換事件
-            document.querySelectorAll('.cat-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.cat-btn').forEach(b => {
-                        b.classList.remove('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-600/25');
-                        b.classList.add('bg-white/5', 'text-slate-300', 'border', 'border-white/10');
-                    });
-                    btn.classList.add('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-600/25');
-                    btn.classList.remove('bg-white/5', 'text-slate-300', 'border', 'border-white/10');
-
-                    state.activeCategory = btn.dataset.category;
-                    renderTools();
-                });
-            });
 
             // 搜尋框即時篩選
             document.getElementById('search-input').addEventListener('input', (e) => {
@@ -496,32 +728,83 @@
                 renderTools();
             });
 
-            // 新增 / 編輯工具 Modal 控制
-            const modal = document.getElementById('tool-modal');
-            const form = document.getElementById('tool-form');
+            // 工具新增/編輯 Modal 控制
+            const toolModal = document.getElementById('tool-modal');
+            const toolForm = document.getElementById('tool-form');
 
-            const openAddModal = () => {
-                form.reset();
+            document.getElementById('open-add-modal-btn').addEventListener('click', () => {
+                toolForm.reset();
                 document.getElementById('tool-id-input').value = '';
+                document.getElementById('tool-color1-input').value = '#6366f1';
+                document.getElementById('tool-color2-input').value = '#9333ea';
                 document.getElementById('modal-title').innerHTML = `
                     <i data-lucide="folder-plus" class="w-5 h-5 text-emerald-400"></i>
-                    <span>新增自訂工具卡片</span>
+                    <span>新增工具卡片</span>
                 `;
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                setIconMode('preset');
+                toolModal.classList.remove('hidden');
+                toolModal.classList.add('flex');
                 lucide.createIcons();
+            });
+
+            const closeToolModal = () => {
+                toolModal.classList.add('hidden');
+                toolModal.classList.remove('flex');
             };
 
-            const closeModal = () => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            };
+            document.getElementById('close-modal-btn').addEventListener('click', closeToolModal);
+            document.getElementById('cancel-modal-btn').addEventListener('click', closeToolModal);
+            toolModal.addEventListener('click', (e) => { if (e.target === toolModal) closeToolModal(); });
 
-            document.getElementById('open-add-modal-btn').addEventListener('click', openAddModal);
-            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
-            document.getElementById('cancel-modal-btn').addEventListener('click', closeModal);
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal();
+            // 圖示類型切換與即時預覽監聽
+            document.getElementById('tab-icon-preset').addEventListener('click', () => setIconMode('preset'));
+            document.getElementById('tab-icon-custom').addEventListener('click', () => setIconMode('custom'));
+            document.getElementById('tool-icon-input').addEventListener('change', updateIconPreview);
+            document.getElementById('tool-custom-icon-input').addEventListener('input', updateIconPreview);
+            document.getElementById('tool-color1-input').addEventListener('input', updateIconPreview);
+            document.getElementById('tool-color2-input').addEventListener('input', updateIconPreview);
+
+            // 預設漸層色票點擊
+            document.querySelectorAll('.color-preset').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('tool-color1-input').value = btn.dataset.c1;
+                    document.getElementById('tool-color2-input').value = btn.dataset.c2;
+                    updateIconPreview();
+                });
+            });
+
+            // 送出工具表單
+            toolForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const editId = document.getElementById('tool-id-input').value.trim();
+                const name = document.getElementById('tool-name-input').value.trim();
+                const url = document.getElementById('tool-url-input').value.trim();
+                const iconType = state.iconMode;
+                const icon = document.getElementById('tool-icon-input').value;
+                const customIcon = document.getElementById('tool-custom-icon-input').value.trim();
+                const color1 = document.getElementById('tool-color1-input').value;
+                const color2 = document.getElementById('tool-color2-input').value;
+                const desc = document.getElementById('tool-desc-input').value.trim();
+
+                if (!name || !url) return;
+
+                if (editId) {
+                    const idx = state.tools.findIndex(t => t.id === editId);
+                    if (idx !== -1) {
+                        state.tools[idx] = { ...state.tools[idx], name, url, iconType, icon, customIcon, color1, color2, desc };
+                        showToast(`已更新「${name}」設定`);
+                    }
+                } else {
+                    state.tools.push({
+                        id: 'tool_' + Date.now(),
+                        name, url, iconType, icon, customIcon, color1, color2, desc
+                    });
+                    showToast(`已成功新增「${name}」！`);
+                }
+
+                saveTools();
+                renderTools();
+                closeToolModal();
             });
 
             // 重設預設工具
@@ -529,48 +812,73 @@
                 state.tools = [...DEFAULT_TOOLS];
                 saveTools();
                 renderTools();
-                showToast('已重設為預設兩張工具卡片');
+                showToast('已重設為預設工具卡片');
             });
 
-            // 送出新增或編輯表單
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const editId = document.getElementById('tool-id-input').value.trim();
-                const name = document.getElementById('tool-name-input').value.trim();
-                const url = document.getElementById('tool-url-input').value.trim();
-                const category = document.getElementById('tool-cat-input').value;
-                const tag = document.getElementById('tool-tag-input').value.trim() || '自訂工具';
-                const icon = document.getElementById('tool-icon-input').value;
-                const color = document.getElementById('tool-color-input').value;
-                const desc = document.getElementById('tool-desc-input').value.trim();
+            // 背景設定 Modal 控制
+            const bgModal = document.getElementById('bg-modal');
+            const openBgModal = () => {
+                bgModal.classList.remove('hidden');
+                bgModal.classList.add('flex');
+                lucide.createIcons();
+            };
+            const closeBgModal = () => {
+                bgModal.classList.add('hidden');
+                bgModal.classList.remove('flex');
+            };
 
-                if (!name || !url) return;
+            document.getElementById('open-bg-modal-btn').addEventListener('click', openBgModal);
+            document.getElementById('close-bg-modal-btn').addEventListener('click', closeBgModal);
+            document.getElementById('done-bg-modal-btn').addEventListener('click', closeBgModal);
+            bgModal.addEventListener('click', (e) => { if (e.target === bgModal) closeBgModal(); });
 
-                if (editId) {
-                    // 更新現有卡片
-                    const idx = state.tools.findIndex(t => t.id === editId);
-                    if (idx !== -1) {
-                        state.tools[idx] = { ...state.tools[idx], name, url, category, tag, icon, color, desc };
-                        showToast(`已更新「${name}」設定`);
-                    }
-                } else {
-                    // 新增卡片
-                    state.tools.push({
-                        id: 'tool_' + Date.now(),
-                        name,
-                        url,
-                        category,
-                        tag,
-                        icon,
-                        color,
-                        desc
-                    });
-                    showToast(`已成功新增「${name}」！`);
-                }
+            // 預設主題背景切換
+            document.querySelectorAll('.bg-preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.bg.mode = 'preset';
+                    state.bg.preset = btn.dataset.preset;
+                    applyBgSettings();
+                    saveBgSettings();
+                });
+            });
 
-                saveTools();
-                renderTools();
-                closeModal();
+            // 套用自訂背景圖片網址
+            document.getElementById('apply-bg-url-btn').addEventListener('click', () => {
+                const url = document.getElementById('custom-bg-url-input').value.trim();
+                if (!url) return;
+                state.bg.mode = 'custom';
+                state.bg.customUrl = url;
+                applyBgSettings();
+                saveBgSettings();
+                showToast('已套用自訂背景圖片');
+            });
+
+            // 本機上傳背景圖片
+            document.getElementById('custom-bg-file-input').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    state.bg.mode = 'custom';
+                    state.bg.customUrl = event.target.result;
+                    applyBgSettings();
+                    saveBgSettings();
+                    showToast('已上傳並套用本機背景圖片');
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // 模糊度與遮罩暗度即時滑桿
+            document.getElementById('bg-blur-slider').addEventListener('input', (e) => {
+                state.bg.blur = Number(e.target.value);
+                applyBgSettings();
+                saveBgSettings();
+            });
+
+            document.getElementById('bg-darkness-slider').addEventListener('input', (e) => {
+                state.bg.darkness = Number(e.target.value);
+                applyBgSettings();
+                saveBgSettings();
             });
         });
     </script>
