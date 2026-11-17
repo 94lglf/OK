@@ -186,10 +186,10 @@
         <!-- Interactive Views Section -->
         <div class="glass-card rounded-2xl shadow-sm overflow-hidden">
             <div class="flex border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-800/40 px-2 pt-2">
-                <button id="tab-furigana" onclick="switchTab('furigana')" class="px-4 py-2.5 text-sm border-b-2 border-indigo-600 text-indigo-600 dark:border-sakura-400 dark:text-sakura-400 font-semibold flex items-center gap-2 transition-colors">
+                <button id="tab-furigana" type="button" class="px-4 py-2.5 text-sm border-b-2 border-indigo-600 text-indigo-600 dark:border-sakura-400 dark:text-sakura-400 font-semibold flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-font"></i> 振假名 (Furigana) 顯示
                 </button>
-                <button id="tab-breakdown" onclick="switchTab('breakdown')" class="px-4 py-2.5 text-sm border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 transition-colors">
+                <button id="tab-breakdown" type="button" class="px-4 py-2.5 text-sm border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-table-list"></i> 單字與詞性詳細分析表
                 </button>
             </div>
@@ -233,301 +233,310 @@
     </main>
 
     <script>
-        let tokenizer = null;
-        let isDictLoaded = false;
+        // 全部包在 DOMContentLoaded 確保絕對安全，絕不會發生抓不到元素而導致癱瘓
+        window.addEventListener('DOMContentLoaded', () => {
+            let tokenizer = null;
+            let isDictLoaded = false;
 
-        const KANJI_ALTERNATIVES = {
-            "角": ["かど", "つの", "すみ", "かく"],
-            "生": ["なま", "い", "せい", "しょう", "き", "う"],
-            "日本": ["にほん", "にっぽん"],
-            "一日": ["ついたち", "いちにち"],
-            "大": ["だい", "おお", "たい"],
-            "行": ["い", "ゆ", "こう", "ぎょう"],
-            "風": ["かぜ", "ふう", "ふ"],
-            "下": ["した", "しも", "くだ"],
-            "上": ["うえ", "かみ", "あ"],
-            "日": ["ひ", "か", "にち"],
-            "本": ["ほん", "もと"],
-            "中": ["なか", "ちゅう"],
-            "人": ["ひと", "じん"],
-            "私": ["わたし", "わたくし"],
-            "古池": ["ふるいけ"],
-            "蛙": ["かわず"],
-            "飛び込む": ["とびこむ"],
-            "水": ["みず"],
-            "音": ["おと"]
-        };
+            const KANJI_ALTERNATIVES = {
+                "角": ["かど", "つの", "すみ", "かく"],
+                "生": ["なま", "い", "せい", "しょう", "き", "う"],
+                "日本": ["にほん", "にっぽん"],
+                "一日": ["ついたち", "いちにち"],
+                "大": ["だい", "おお", "たい"],
+                "行": ["い", "ゆ", "こう", "ぎょう"],
+                "風": ["かぜ", "ふう", "ふ"],
+                "下": ["した", "しも", "くだ"],
+                "上": ["うえ", "かみ", "あ"],
+                "日": ["ひ", "か", "にち"],
+                "本": ["ほん", "もと"],
+                "中": ["なか", "ちゅう"],
+                "人": ["ひと", "じん"],
+                "私": ["わたし", "わたくし"],
+                "古池": ["ふるいけ"],
+                "蛙": ["かわず"],
+                "飛び込む": ["とびこむ"],
+                "水": ["みず"],
+                "音": ["おと"]
+            };
 
-        const SAMPLES = {
-            1: "古池や 蛙飛び込む 水の音\nふるいけや かわずとびこむ みずのおと",
-            2: "吾輩は猫である。名前はまだ無い。",
-            3: "東京タワーは、東京都港区芝公園にある総合電波塔である。"
-        };
+            const SAMPLES = {
+                1: "古池や 蛙飛び込む 水の音\nふるいけや かわずとびこむ みずのおと",
+                2: "吾輩は猫である。名前はまだ無い。",
+                3: "東京タワーは、東京都港区芝公園にある総合電波塔である。"
+            };
 
-        const elInput = document.getElementById('input-text');
-        const elOutputRomaji = document.getElementById('output-romaji');
-        const elOutputFurigana = document.getElementById('output-furigana');
-        const elBreakdownBody = document.getElementById('breakdown-table-body');
-        const elOptRomanization = document.getElementById('opt-romanization');
-        const elOptSpaces = document.getElementById('opt-spaces');
-        const elOptCase = document.getElementById('opt-case');
+            const elInput = document.getElementById('input-text');
+            const elOutputRomaji = document.getElementById('output-romaji');
+            const elOutputFurigana = document.getElementById('output-furigana');
+            const elBreakdownBody = document.getElementById('breakdown-table-body');
+            const elOptRomanization = document.getElementById('opt-romanization');
+            const elOptSpaces = document.getElementById('opt-spaces');
+            const elOptCase = document.getElementById('opt-case');
 
-        function setReadyStatus(text) {
-            const statusEl = document.getElementById('dictionary-status');
-            statusEl.className = "flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-300";
-            statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">${text}</span>`;
-        }
-
-        function autoResizeTextarea() {
-            elInput.style.height = 'auto';
-            elInput.style.height = Math.max(160, elInput.scrollHeight) + 'px';
-        }
-
-        document.getElementById('theme-toggle').addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-        });
-
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        }
-
-        function safeToRomaji(hiraText, system = 'hepburn') {
-            if (typeof wanakana !== 'undefined' && wanakana.toRomaji) {
-                try {
-                    const customMap = system === 'kunrei' ? {
-                        し: 'si', ち: 'ti', つ: 'tu', ふ: 'hu', じ: 'zi', ぢ: 'di', づ: 'du',
-                        しゃ: 'sya', しゅ: 'syu', しょ: 'syo',
-                        ちゃ: 'tya', ちゅ: 'tyu', ちょ: 'tyo',
-                        じゃ: 'zya', じゅ: 'zyu', じょ: 'zyo'
-                    } : {};
-                    return wanakana.toRomaji(hiraText, { customRomajiMapping: customMap, useObsoleteKana: false });
-                } catch(e) {}
+            function setReadyStatus(text) {
+                const statusEl = document.getElementById('dictionary-status');
+                if (statusEl) {
+                    statusEl.className = "flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 transition-colors duration-300";
+                    statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-xs"></i><span class="font-medium">${text}</span>`;
+                }
             }
 
-            const hepburnMap = {
-                あ:"a",い:"i",う:"u",え:"e",お:"o",か:"ka",き:"ki",く:"ku",け:"ke",こ:"ko",
-                さ:"sa",し:"shi",す:"su",せ:"se",そ:"so",た:"ta",ち:"chi",つ:"tsu",て:"te",と:"to",
-                な:"na",に:"ni",ぬ:"nu",ね:"ne",の:"no",は:"ha",ひ:"hi",ふ:"fu",へ:"he",ほ:"ho",
-                ま:"ma",み:"mi",む:"mu",め:"me",も:"mo",や:"ya",ゆ:"yu",よ:"yo",
-                ら:"ra",り:"ri",る:"ru",れ:"re",ろ:"ro",わ:"wa",を:"wo",ん:"n",
-                が:"ga",ぎ:"gi",ぐ:"gu",げ:"ge",ご:"go",ざ:"za",じ:"ji",ず:"zu",ぜ:"ze",ぞ:"zo",
-                だ:"da",ぢ:"ji",づ:"zu",で:"de",ど:"do",ば:"ba",び:"bi",ぶ:"bu",べ:"be",ぼ:"bo",
-                ぱ:"pa",ぴ:"pi",ぷ:"pu",ぺ:"pe",ぽ:"po",ゃ:"ya",ゅ:"yu",ょ:"yo",っ:"tsu",
-                しゃ:"sha",しゅ:"shu",しょ:"sho",ちゃ:"cha",ちゅ:"chu",ちょ:"cho",
-                じゃ:"ja",じゅ:"ju",じょ:"jo",きゃ:"kya",きゅ:"kyu",きょ:"kyo",
-                ぎゃ:"gya",ぎゅ:"gyu",ぎょ:"gyo",にゃ:"nya",にゅ:"nyu",にょ:"nyo",
-                ひゃ:"hya",ひゅ:"hyu",ひょ:"hyo",びゃ:"bya",びゅ:"byu",びょ:"byo",
-                ぴゃ:"pya",ぴゅ:"pyu",ぴょ:"pyo",みゃ:"mya",みゅ:"myu",みょ:"myo",
-                りゃ:"rya",りゅ:"ryu",りょ:"ryo"
-            };
+            function autoResizeTextarea() {
+                if (elInput) {
+                    elInput.style.height = 'auto';
+                    elInput.style.height = Math.max(160, elInput.scrollHeight) + 'px';
+                }
+            }
 
-            const kunreiMap = {
-                ...hepburnMap,
-                し:"si",ち:"ti",つ:"tu",ふ:"hu",じ:"zi",ぢ:"di",づ:"du",
-                しゃ:"sya",しゅ:"syu",しょ:"syo",ちゃ:"tya",ちゅ:"tyu",ちょ:"tyo",
-                じゃ:"zya",じゅ:"zyu",じょ:"zyo"
-            };
+            // Theme toggle
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+            });
 
-            const activeMap = system === 'kunrei' ? kunreiMap : hepburnMap;
-            let result = "";
-            let i = 0;
-            while (i < hiraText.length) {
-                if (i + 1 < hiraText.length) {
-                    let doubleChar = hiraText.substring(i, i + 2);
-                    if (activeMap[doubleChar]) {
-                        result += activeMap[doubleChar];
-                        i += 2;
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+
+            function safeToRomaji(hiraText, system = 'hepburn') {
+                if (typeof wanakana !== 'undefined' && wanakana.toRomaji) {
+                    try {
+                        const customMap = system === 'kunrei' ? {
+                            し: 'si', ち: 'ti', つ: 'tu', ふ: 'hu', じ: 'zi', ぢ: 'di', づ: 'du',
+                            しゃ: 'sya', しゅ: 'syu', しょ: 'syo',
+                            ちゃ: 'tya', ちゅ: 'tyu', ちょ: 'tyo',
+                            じゃ: 'zya', じゅ: 'zyu', じょ: 'zyo'
+                        } : {};
+                        return wanakana.toRomaji(hiraText, { customRomajiMapping: customMap, useObsoleteKana: false });
+                    } catch(e) {}
+                }
+
+                const hepburnMap = {
+                    あ:"a",い:"i",う:"u",え:"e",お:"o",か:"ka",き:"ki",く:"ku",け:"ke",こ:"ko",
+                    さ:"sa",し:"shi",す:"su",せ:"se",そ:"so",た:"ta",ち:"chi",つ:"tsu",て:"te",と:"to",
+                    な:"na",に:"ni",ぬ:"nu",ね:"ne",の:"no",は:"ha",ひ:"hi",ふ:"fu",へ:"he",ほ:"ho",
+                    ま:"ma",み:"mi",む:"mu",め:"me",も:"mo",や:"ya",ゆ:"yu",よ:"yo",
+                    ら:"ra",り:"ri",る:"ru",れ:"re",ろ:"ro",わ:"wa",を:"wo",ん:"n",
+                    が:"ga",ぎ:"gi",ぐ:"gu",げ:"ge",ご:"go",ざ:"za",じ:"ji",ず:"zu",ぜ:"ze",ぞ:"zo",
+                    だ:"da",ぢ:"ji",づ:"zu",で:"de",ど:"do",ば:"ba",び:"bi",ぶ:"bu",べ:"be",ぼ:"bo",
+                    ぱ:"pa",ぴ:"pi",ぷ:"pu",ぺ:"pe",ぽ:"po",ゃ:"ya",ゅ:"yu",ょ:"yo",っ:"tsu",
+                    しゃ:"sha",しゅ:"shu",しょ:"sho",ちゃ:"cha",ちゅ:"chu",ちょ:"cho",
+                    じゃ:"ja",じゅ:"ju",じょ:"jo",きゃ:"kya",きゅ:"kyu",きょ:"kyo",
+                    ぎゃ:"gya",ぎゅ:"gyu",ぎょ:"gyo",にゃ:"nya",にゅ:"nyu",にょ:"nyo",
+                    ひゃ:"hya",ひゅ:"hyu",ひょ:"hyo",びゃ:"bya",びゅ:"byu",びょ:"byo",
+                    ぴゃ:"pya",ぴゅ:"pyu",ぴょ:"pyo",みゃ:"mya",みゅ:"myu",みょ:"myo",
+                    りゃ:"rya",りゅ:"ryu",りょ:"ryo"
+                };
+
+                const kunreiMap = {
+                    ...hepburnMap,
+                    し:"si",ち:"ti",つ:"tu",ふ:"hu",じ:"zi",ぢ:"di",づ:"du",
+                    しゃ:"sya",しゅ:"syu",しょ:"syo",ちゃ:"tya",ちゅ:"tyu",ちょ:"tyo",
+                    じゃ:"zya",じゅ:"zyu",じょ:"zyo"
+                };
+
+                const activeMap = system === 'kunrei' ? kunreiMap : hepburnMap;
+                let result = "";
+                let i = 0;
+                while (i < hiraText.length) {
+                    if (i + 1 < hiraText.length) {
+                        let doubleChar = hiraText.substring(i, i + 2);
+                        if (activeMap[doubleChar]) {
+                            result += activeMap[doubleChar];
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    let singleChar = hiraText[i];
+                    if (singleChar === 'っ' && i + 1 < hiraText.length) {
+                        let nextChar = hiraText[i + 1];
+                        let nextRomaji = activeMap[nextChar] || nextChar;
+                        result += nextRomaji[0];
+                        i++;
                         continue;
                     }
-                }
-                let singleChar = hiraText[i];
-                if (singleChar === 'っ' && i + 1 < hiraText.length) {
-                    let nextChar = hiraText[i + 1];
-                    let nextRomaji = activeMap[nextChar] || nextChar;
-                    result += nextRomaji[0];
+                    result += activeMap[singleChar] || singleChar;
                     i++;
-                    continue;
                 }
-                result += activeMap[singleChar] || singleChar;
-                i++;
+                return result;
             }
-            return result;
-        }
 
-        function kataToHira(str) {
-            if (!str) return '';
-            return str.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
-        }
+            function kataToHira(str) {
+                if (!str) return '';
+                return str.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+            }
 
-        function hiraToKata(str) {
-            if (!str) return '';
-            return str.replace(/[\u3041-\u3096]/g, m => String.fromCharCode(m.charCodeAt(0) + 0x60));
-        }
+            function hiraToKata(str) {
+                if (!str) return '';
+                return str.replace(/[\u3041-\u3096]/g, m => String.fromCharCode(m.charCodeAt(0) + 0x60));
+            }
 
-        function fallbackTokenize(text) {
-            const result = [];
-            const regex = /([\u4e00-\u9faf]+)|([\u3040-\u309f\u30a0-\u30ff]+)|(\n)|([^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\n]+)/g;
-            let match;
-            while ((match = regex.exec(text)) !== null) {
-                const surface = match[0];
-                if (surface === '\n') {
-                    result.push({ surface_form: '\n', reading: '\n', pos: '換行' });
-                    continue;
-                }
-                let reading = surface;
-                let pos = '未知';
-                if (match[1]) {
-                    pos = '名詞/漢字';
-                    if (KANJI_ALTERNATIVES[surface]) {
-                        reading = hiraToKata(KANJI_ALTERNATIVES[surface][0]);
+            function fallbackTokenize(text) {
+                const result = [];
+                const regex = /([\u4e00-\u9faf]+)|([\u3040-\u309f\u30a0-\u30ff]+)|(\n)|([^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\n]+)/g;
+                let match;
+                while ((match = regex.exec(text)) !== null) {
+                    const surface = match[0];
+                    if (surface === '\n') {
+                        result.push({ surface_form: '\n', reading: '\n', pos: '換行' });
+                        continue;
                     }
-                } else if (match[2]) {
-                    pos = '假名';
-                    reading = kataToHira(surface);
-                } else {
-                    pos = '標點/其他';
+                    let reading = surface;
+                    let pos = '未知';
+                    if (match[1]) {
+                        pos = '名詞/漢字';
+                        if (KANJI_ALTERNATIVES[surface]) {
+                            reading = hiraToKata(KANJI_ALTERNATIVES[surface][0]);
+                        }
+                    } else if (match[2]) {
+                        pos = '假名';
+                        reading = kataToHira(surface);
+                    } else {
+                        pos = '標點/其他';
+                    }
+                    result.push({ surface_form: surface, reading: kataToHira(reading), pos: pos });
                 }
-                result.push({ surface_form: surface, reading: kataToHira(reading), pos: pos });
-            }
-            return result;
-        }
-
-        function processText() {
-            const rawText = elInput.value;
-            document.getElementById('char-count').textContent = `${rawText.length} 個字元`;
-            autoResizeTextarea();
-
-            if (!rawText.trim()) {
-                elOutputRomaji.innerHTML = `<span class="text-slate-400 font-sans italic text-sm">轉換後的羅馬字將顯示於此...</span>`;
-                elOutputFurigana.innerHTML = `<span class="text-slate-400 font-sans text-sm italic">振假名標註結果將顯示於此...</span>`;
-                elBreakdownBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic">尚無詞性拆解資料。</td></tr>`;
-                return;
+                return result;
             }
 
-            const lines = rawText.split('\n');
-            let tokens = [];
-            lines.forEach((line, index) => {
-                if (line.trim() !== '') {
-                    let lineTokens = (isDictLoaded && tokenizer) ? tokenizer.tokenize(line) : fallbackTokenize(line);
-                    tokens.push(...lineTokens);
-                }
-                if (index < lines.length - 1) {
-                    tokens.push({ surface_form: '\n', reading: '\n', pos: '換行' });
-                }
-            });
+            function processText() {
+                if (!elInput) return;
+                const rawText = elInput.value;
+                document.getElementById('char-count').textContent = `${rawText.length} 個字元`;
+                autoResizeTextarea();
 
-            renderRomaji(tokens);
-            renderFurigana(tokens);
-            renderBreakdown(tokens);
-        }
-
-        function renderRomaji(tokens) {
-            const isKunrei = elOptRomanization.value === 'kunrei';
-            const addSpaces = elOptSpaces.checked;
-            const letterCase = elOptCase.value;
-
-            let romajiLines = [[]];
-            tokens.forEach(t => {
-                if (t.surface_form === '\n') {
-                    romajiLines.push([]);
+                if (!rawText.trim()) {
+                    elOutputRomaji.innerHTML = `<span class="text-slate-400 font-sans italic text-sm">轉換後的羅馬字將顯示於此...</span>`;
+                    elOutputFurigana.innerHTML = `<span class="text-slate-400 font-sans text-sm italic">振假名標註結果將顯示於此...</span>`;
+                    elBreakdownBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic">尚無詞性拆解資料。</td></tr>`;
                     return;
                 }
-                let textToConvert = t.reading ? kataToHira(t.reading) : t.surface_form;
-                let romaji = safeToRomaji(textToConvert, isKunrei ? 'kunrei' : 'hepburn');
 
-                if (letterCase === 'UPPERCASE') romaji = romaji.toUpperCase();
-                else if (letterCase === 'Capitalize') romaji = romaji.charAt(0).toUpperCase() + romaji.slice(1);
+                const lines = rawText.split('\n');
+                let tokens = [];
+                lines.forEach((line, index) => {
+                    if (line.trim() !== '') {
+                        let lineTokens = (isDictLoaded && tokenizer) ? tokenizer.tokenize(line) : fallbackTokenize(line);
+                        tokens.push(...lineTokens);
+                    }
+                    if (index < lines.length - 1) {
+                        tokens.push({ surface_form: '\n', reading: '\n', pos: '換行' });
+                    }
+                });
 
-                romajiLines[romajiLines.length - 1].push(romaji);
-            });
+                renderRomaji(tokens);
+                renderFurigana(tokens);
+                renderBreakdown(tokens);
+            }
 
-            const separator = addSpaces ? ' ' : '';
-            let lines = romajiLines.map(parts => parts.join(separator).replace(/([。、！？])/g, '$1 '));
-            elOutputRomaji.textContent = lines.join('\n').trim();
-        }
+            function renderRomaji(tokens) {
+                const isKunrei = elOptRomanization.value === 'kunrei';
+                const addSpaces = elOptSpaces.checked;
+                const letterCase = elOptCase.value;
 
-        function renderFurigana(tokens) {
-            let html = '';
-            tokens.forEach(t => {
-                if (t.surface_form === '\n') {
-                    html += '<br/>';
-                    return;
-                }
-                const hasKanji = /[\u4e00-\u9faf]/.test(t.surface_form);
-                const hiraReading = kataToHira(t.reading || t.surface_form);
-                if (hasKanji && t.reading && t.surface_form !== hiraReading) {
-                    html += `<ruby>${escapeHtml(t.surface_form)}<rt>${escapeHtml(hiraReading)}</rt></ruby>`;
+                let romajiLines = [[]];
+                tokens.forEach(t => {
+                    if (t.surface_form === '\n') {
+                        romajiLines.push([]);
+                        return;
+                    }
+                    let textToConvert = t.reading ? kataToHira(t.reading) : t.surface_form;
+                    let romaji = safeToRomaji(textToConvert, isKunrei ? 'kunrei' : 'hepburn');
+
+                    if (letterCase === 'UPPERCASE') romaji = romaji.toUpperCase();
+                    else if (letterCase === 'Capitalize') romaji = romaji.charAt(0).toUpperCase() + romaji.slice(1);
+
+                    romajiLines[romajiLines.length - 1].push(romaji);
+                });
+
+                const separator = addSpaces ? ' ' : '';
+                let lines = romajiLines.map(parts => parts.join(separator).replace(/([。、！？])/g, '$1 '));
+                elOutputRomaji.textContent = lines.join('\n').trim();
+            }
+
+            function renderFurigana(tokens) {
+                let html = '';
+                tokens.forEach(t => {
+                    if (t.surface_form === '\n') {
+                        html += '<br/>';
+                        return;
+                    }
+                    const hasKanji = /[\u4e00-\u9faf]/.test(t.surface_form);
+                    const hiraReading = kataToHira(t.reading || t.surface_form);
+                    if (hasKanji && t.reading && t.surface_form !== hiraReading) {
+                        html += `<ruby>${escapeHtml(t.surface_form)}<rt>${escapeHtml(hiraReading)}</rt></ruby>`;
+                    } else {
+                        html += `<span>${escapeHtml(t.surface_form)}</span>`;
+                    }
+                });
+                elOutputFurigana.innerHTML = html;
+            }
+
+            function renderBreakdown(tokens) {
+                const isKunrei = elOptRomanization.value === 'kunrei';
+                let rowsHtml = '';
+                tokens.forEach(t => {
+                    if (t.surface_form.trim() === '') return;
+                    const reading = kataToHira(t.reading || t.surface_form);
+                    const romaji = safeToRomaji(reading, isKunrei ? 'kunrei' : 'hepburn');
+                    rowsHtml += `
+                        <tr class="hover:bg-white/40 dark:hover:bg-slate-800/40 transition">
+                            <td class="p-3 font-semibold text-slate-900 dark:text-white">${escapeHtml(t.surface_form)}</td>
+                            <td class="p-3"><span class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs">${escapeHtml(reading)}</span></td>
+                            <td class="p-3 font-mono text-xs">${escapeHtml(romaji)}</td>
+                            <td class="p-3 text-xs text-slate-500">${escapeHtml(t.pos || '名詞')}</td>
+                        </tr>
+                    `;
+                });
+                elBreakdownBody.innerHTML = rowsHtml || `<tr><td colspan="4" class="p-4 text-center text-slate-400">尚無資料</td></tr>`;
+            }
+
+            // Expose switchTab globally so onclick can call it
+            window.switchTab = function(tabName) {
+                const tabFurigana = document.getElementById('tab-furigana');
+                const tabBreakdown = document.getElementById('tab-breakdown');
+                const viewFurigana = document.getElementById('view-furigana');
+                const viewBreakdown = document.getElementById('view-breakdown');
+
+                if (tabName === 'furigana') {
+                    tabFurigana.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                    tabFurigana.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+                    
+                    tabBreakdown.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                    tabBreakdown.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+
+                    viewFurigana.classList.remove('hidden');
+                    viewBreakdown.classList.add('hidden');
                 } else {
-                    html += `<span>${escapeHtml(t.surface_form)}</span>`;
+                    tabBreakdown.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                    tabBreakdown.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+
+                    tabFurigana.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
+                    tabFurigana.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+
+                    viewBreakdown.classList.remove('hidden');
+                    viewFurigana.classList.add('hidden');
                 }
-            });
-            elOutputFurigana.innerHTML = html;
-        }
+            };
 
-        function renderBreakdown(tokens) {
-            const isKunrei = elOptRomanization.value === 'kunrei';
-            let rowsHtml = '';
-            tokens.forEach(t => {
-                if (t.surface_form.trim() === '') return;
-                const reading = kataToHira(t.reading || t.surface_form);
-                const romaji = safeToRomaji(reading, isKunrei ? 'kunrei' : 'hepburn');
-                rowsHtml += `
-                    <tr class="hover:bg-white/40 dark:hover:bg-slate-800/40 transition">
-                        <td class="p-3 font-semibold text-slate-900 dark:text-white">${escapeHtml(t.surface_form)}</td>
-                        <td class="p-3"><span class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs">${escapeHtml(reading)}</span></td>
-                        <td class="p-3 font-mono text-xs">${escapeHtml(romaji)}</td>
-                        <td class="p-3 text-xs text-slate-500">${escapeHtml(t.pos || '名詞')}</td>
-                    </tr>
-                `;
-            });
-            elBreakdownBody.innerHTML = rowsHtml || `<tr><td colspan="4" class="p-4 text-center text-slate-400">尚無資料</td></tr>`;
-        }
-
-        function switchTab(tabName) {
-            const tabFurigana = document.getElementById('tab-furigana');
-            const tabBreakdown = document.getElementById('tab-breakdown');
-            const viewFurigana = document.getElementById('view-furigana');
-            const viewBreakdown = document.getElementById('view-breakdown');
-
-            if (tabName === 'furigana') {
-                tabFurigana.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
-                tabFurigana.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
-                
-                tabBreakdown.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
-                tabBreakdown.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
-
-                viewFurigana.classList.remove('hidden');
-                viewBreakdown.classList.add('hidden');
-            } else {
-                tabBreakdown.classList.add('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
-                tabBreakdown.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
-
-                tabFurigana.classList.remove('border-indigo-600', 'text-indigo-600', 'dark:border-sakura-400', 'dark:text-sakura-400', 'font-semibold');
-                tabFurigana.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
-
-                viewBreakdown.classList.remove('hidden');
-                viewFurigana.classList.add('hidden');
+            function escapeHtml(str) {
+                return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
             }
-        }
 
-        function escapeHtml(str) {
-            return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
-        }
+            window.loadSample = function(num) {
+                if (SAMPLES[num]) {
+                    elInput.value = SAMPLES[num];
+                    processText();
+                    switchTab('furigana');
+                }
+            };
 
-        function loadSample(num) {
-            if (SAMPLES[num]) {
-                elInput.value = SAMPLES[num];
-                processText();
-                switchTab('furigana');
-            }
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
+            // 初始化載入範例
             elInput.value = SAMPLES[1];
             processText();
 
-            // 設定 4 秒逾時保護：若遠端辭典未能載入，自動轉為綠色就緒狀態，不再轉圈圈
+            // 4秒逾時保護
             const fallbackTimer = setTimeout(() => {
                 if (!isDictLoaded) {
                     setReadyStatus('就緒 (快速解析模式)');
@@ -541,7 +550,7 @@
                         if (!err && _tok) {
                             tokenizer = _tok;
                             isDictLoaded = true;
-                            setReadyStatus('辭典載入完成 (形態素解析中)');
+                            setReadyStatus('辭典載入完成');
                             processText();
                         } else {
                             setReadyStatus('就緒 (快速解析模式)');
@@ -556,6 +565,7 @@
                 setReadyStatus('就緒 (離線解析模式)');
             }
 
+            // 事件監聽綁定
             elInput.addEventListener('input', processText);
             elOptRomanization.addEventListener('change', processText);
             elOptSpaces.addEventListener('change', processText);
@@ -566,19 +576,19 @@
             document.getElementById('btn-copy-hiragana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製原文！"));
             document.getElementById('btn-copy-katakana').addEventListener('click', () => copyToClipboard(elInput.value, "已複製原文！"));
             document.getElementById('btn-copy-html').addEventListener('click', () => copyToClipboard(elOutputFurigana.innerHTML, "已複製 HTML Ruby！"));
-        });
 
-        function copyToClipboard(text, msg) {
-            const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
-            try { document.execCommand('copy'); showToast(msg); } catch(e){}
-            document.body.removeChild(ta);
-        }
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            document.getElementById('toast-msg').textContent = msg;
-            t.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500);
-        }
+            function copyToClipboard(text, msg) {
+                const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); showToast(msg); } catch(e){}
+                document.body.removeChild(ta);
+            }
+            function showToast(msg) {
+                const t = document.getElementById('toast');
+                document.getElementById('toast-msg').textContent = msg;
+                t.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500);
+            }
+        });
     </script>
 </body>
 </html>
